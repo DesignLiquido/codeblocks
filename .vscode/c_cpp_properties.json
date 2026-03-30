@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/fontes",
+                "C:/wxWidgets-3.3.2/include",
+                "C:/wxWidgets-3.3.2/lib/gcc_dll/mswu",
+                 "${workspaceFolder}/cbsdk-include"
+            ],
+            "defines": [
+                "__WXMSW__",
+                "WXUSINGDLL",
+                "_UNICODE",
+                "UNICODE"
+            ],
+            "compilerPath": "C:/CBMinGW/bin/g++.exe",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}

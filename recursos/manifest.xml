@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_plugin_manifest_file>
+    <Plugin name="LinguagensDL">
+        <Version major="0" minor="1" />
+        <Description>Suporte às linguagens da Design Líquido: Delégua, LMHT, FolEs, LinConEs e dialetos de Portugol.</Description>
+        <Author>Design Líquido</Author>
+        <AuthorEmail></AuthorEmail>
+        <AuthorWebsite>https://github.com/DesignLiquido/codeblocks</AuthorWebsite>
+        <Thanks></Thanks>
+        <License>MIT</License>
+        <SDKVersion major="2" minor="0" release="0" />
+    </Plugin>
+</CodeBlocks_plugin_manifest_file>
