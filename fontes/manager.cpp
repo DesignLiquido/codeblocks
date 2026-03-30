@@ -3,10 +3,13 @@
 #include <sdk.h>
 #include <cbeditor.h>
 #include <cbstyledtextctrl.h>
+#include <editorcolourset.h>
+#include <editormanager.h>
 #include <logmanager.h>
 #include <manager.h>
 
 #include <wx/filename.h>
+#include <wx/arrstr.h>
 
 // Constantes Scintilla usadas como lexers base
 // Definidas em <Scintilla/include/SciLexer.h>, incluído pelo CB SDK
@@ -37,6 +40,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "Delégua",
         { "delegua" },
         SCLEX_CPP,
+        "C/C++",
         // Palavras-chave primárias
         "enquanto para cada se senão senao função funcao retorne retornar "
         "classe herda novo var constante verdadeiro falso nulo e ou não nao "
@@ -52,6 +56,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "Pituguês",
         { "pitugues" },
         SCLEX_CPP,
+        "C/C++",
         "enquanto para cada se senão função retorne retornar classe herda novo "
         "var constante verdadeiro falso nulo e ou não importar",
         "delegua.runtime"
@@ -64,6 +69,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "BIRL",
         { "birl" },
         SCLEX_CPP,
+        "C/C++",
         "HORA DO SHOW BIRL E AEBORA MONSTRAO TRAPEZIO DESCENDENTE "
         "MENOR OU E MENOR QUE MAIOR OU E MAIOR QUE IGUAL",
         "delegua.runtime"
@@ -76,6 +82,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "Potigol",
         { "potigol" },
         SCLEX_CPP,
+        "C/C++",
         "se então senão para cada em enquanto faça função retorne tipo "
         "verdadeiro falso nulo e ou não imprima leia",
         "potigol.runtime"
@@ -88,6 +95,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "Égua",
         { "egua" },
         SCLEX_CPP,
+        "C/C++",
         "enquanto para cada se senão função retorne classe herda novo "
         "var verdadeiro falso nulo e ou não importar",
         "delegua.runtime"
@@ -100,6 +108,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "LMHT",
         { "lmht" },
         SCLEX_XML,
+        "XML",
         "",   // LMHT usa tags XML; palavras-chave são as tags da spec
         ""    // Sem runtime de execução direto
     });
@@ -111,6 +120,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "FolEs",
         { "foles" },
         SCLEX_CSS,
+        "CSS",
         "cor fundo margem enchimento borda fonte tamanho peso estilo "
         "decoração alinhamento exibição posição largura altura",
         ""
@@ -123,6 +133,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "LinConEs",
         { "lincones" },
         SCLEX_SQL,
+        "SQL",
         "selecionar de onde ordenar por crescente decrescente agrupar "
         "tendo inserir em valores atualizar definir deletar criar tabela "
         "indice visao procedimento função juntar esquerda direita interno externo",
@@ -136,6 +147,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "Portugol Mapler",
         { "mapler" },
         SCLEX_CPP,
+        "C/C++",
         "algoritmo inicio fim se entao senao enquanto faca para de ate "
         "funcao procedimento retorne inteiro real logico caracter texto "
         "verdadeiro falso e ou nao escreva leia",
@@ -149,6 +161,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "Portugol Studio",
         { "por" },
         SCLEX_CPP,
+        "C/C++",
         "programa funcao inicio fim se entao senao enquanto faca para de ate "
         "inteiro real logico caracter cadeia vazio retorne e ou nao "
         "verdadeiro falso escreva leia",
@@ -162,6 +175,7 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
         "Portugol VisuAlg",
         { "alg" },
         SCLEX_CPP,
+        "C/C++",
         "algoritmo inicio fimalgoritmo var inteiro real logico caracter texto "
         "se entao senao fimse enquanto faca fimenquanto para ate passo "
         "fimpara escreva escreval leia e ou nao verdadeiro falso",
@@ -178,8 +192,54 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
     }
 }
 
+wxString GerenciadorLinguagens::ConstruirMascarasPorPerfil(const wxString& perfilBase) const
+{
+    wxArrayString mascaras;
+
+    EditorManager* editorManager = Manager::Get()->GetEditorManager();
+    EditorColourSet* tema = editorManager ? editorManager->GetColourSet() : nullptr;
+    if (!tema)
+        return wxEmptyString;
+
+    HighlightLanguage linguagemBase = tema->GetHighlightLanguage(perfilBase);
+    if (linguagemBase != HL_NONE)
+        mascaras = tema->GetFileMasks(linguagemBase);
+
+    for (const auto& linguagem : linguagens_)
+    {
+        if (linguagem.perfilBase != perfilBase)
+            continue;
+
+        for (const auto& extensao : linguagem.extensoes)
+        {
+            mascaras.Add(wxString::Format("*.%s", extensao));
+        }
+    }
+
+    mascaras = MakeUniqueArray(mascaras, false);
+    return GetStringFromArray(mascaras, ",", false);
+}
+
 void GerenciadorLinguagens::RegistrarTodasExtensoesArquivo()
 {
+    EditorManager* editorManager = Manager::Get()->GetEditorManager();
+    EditorColourSet* tema = editorManager ? editorManager->GetColourSet() : nullptr;
+
+    if (tema)
+    {
+        const wxString perfisBase[] = { "C/C++", "XML", "CSS", "SQL" };
+        for (const wxString& perfilBase : perfisBase)
+        {
+            HighlightLanguage linguagemBase = tema->GetHighlightLanguage(perfilBase);
+            if (linguagemBase == HL_NONE)
+                continue;
+
+            wxString mascaras = ConstruirMascarasPorPerfil(perfilBase);
+            if (!mascaras.IsEmpty())
+                tema->SetFileMasks(linguagemBase, mascaras);
+        }
+    }
+
     size_t quantidadeExtensoes = 0;
     wxString listaExtensoes;
 
@@ -195,11 +255,9 @@ void GerenciadorLinguagens::RegistrarTodasExtensoesArquivo()
         }
     }
 
-    // O Code::Blocks abre arquivos de qualquer extensão; nesta fase registramos
-    // internamente o catálogo e aplicamos lexer por extensão quando o editor abre.
     Manager::Get()->GetLogManager()->Log(
         wxString::Format(
-            "LinguagensDL: %zu extensoes carregadas para realce (%s)",
+            "LinguagensDL: %zu extensoes registradas no editor (%s)",
             quantidadeExtensoes,
             listaExtensoes));
 }
@@ -217,12 +275,24 @@ void GerenciadorLinguagens::AplicarRealce(cbEditor* editor, const wxString& nome
     cbStyledTextCtrl* controleTexto = editor->GetControl();
     if (!controleTexto) return;
 
-    controleTexto->SetLexer(linguagem->lexerScintilla);
+    EditorManager* editorManager = Manager::Get()->GetEditorManager();
+    EditorColourSet* tema = editorManager ? editorManager->GetColourSet() : nullptr;
+    if (tema)
+    {
+        HighlightLanguage linguagemBase = tema->GetHighlightLanguage(linguagem->perfilBase);
+        if (linguagemBase != HL_NONE)
+            editor->SetLanguage(linguagemBase, false);
+        else
+            controleTexto->SetLexer(linguagem->lexerScintilla);
+    }
+    else
+    {
+        controleTexto->SetLexer(linguagem->lexerScintilla);
+    }
 
     if (!linguagem->palavrasChave.IsEmpty())
     {
-        wxCharBuffer utf8 = linguagem->palavrasChave.utf8_str();
-        controleTexto->SetKeyWords(0, utf8.data());
+        controleTexto->SetKeyWords(0, linguagem->palavrasChave);
     }
     else
     {

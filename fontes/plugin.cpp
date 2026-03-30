@@ -4,6 +4,7 @@
 
 #include <sdk.h>
 #include <cbeditor.h>
+#include <configmanager.h>
 #include <editormanager.h>
 #include <logmanager.h>
 #include <manager.h>
@@ -21,10 +22,12 @@ LinguagensDLPlugin::LinguagensDLPlugin()
     : gerenciador_linguagens_(nullptr)
     , executor_(nullptr)
 {
-    // Carrega as configurações padrão do plugin
-    if (!Manager::LoadResource("LinguagensDL.zip"))
+    // Recursos XRC ainda são opcionais enquanto o plugin não empacota um ZIP próprio.
+    wxString arquivoRecursos = ConfigManager::LocateDataFile("LinguagensDL.zip", sdDataGlobal | sdDataUser);
+    if (!arquivoRecursos.IsEmpty())
     {
-        NotifyMissingFile("LinguagensDL.zip");
+        if (!Manager::LoadResource("LinguagensDL.zip"))
+            NotifyMissingFile("LinguagensDL.zip");
     }
 }
 

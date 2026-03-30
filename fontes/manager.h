@@ -12,6 +12,7 @@ struct InformacoesLinguagem
     wxString              nome;           ///< Nome legível (ex.: "Delégua")
     std::vector<wxString> extensoes;      ///< Extensões sem ponto (ex.: "delegua")
     int                   lexerScintilla; ///< Constante SCLEX_* do Scintilla
+    wxString              perfilBase;     ///< Nome do perfil de cores base do Code::Blocks
     wxString              palavrasChave;  ///< Lista de palavras-chave separadas por espaços
     wxString              chaveRuntime;   ///< Chave de configuração para o executável do runtime
 };
@@ -45,6 +46,7 @@ class GerenciadorLinguagens
 
     private:
         void ConstruirCatalogoLinguagens();
+        wxString ConstruirMascarasPorPerfil(const wxString& perfilBase) const;
 
         std::vector<InformacoesLinguagem> linguagens_;
         std::map<wxString, const InformacoesLinguagem*> mapaExtensao_;

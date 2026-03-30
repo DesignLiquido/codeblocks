@@ -32,8 +32,8 @@ Plugin para o [Code::Blocks](https://www.codeblocks.org/) que adiciona suporte a
 
 ## Funcionalidades planejadas
 
-- [ ] Registro de extensões de arquivo no Code::Blocks
-- [ ] Realce de sintaxe para todas as linguagens
+- [x] Registro de extensões de arquivo no Code::Blocks
+- [x] Realce de sintaxe para todas as linguagens
 - [ ] Integração com runtimes (executar arquivos diretamente)
 - [ ] Completude de código (palavras-chave e funções internas de Delégua)
 - [ ] Integração com depurador
