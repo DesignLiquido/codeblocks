@@ -9,13 +9,20 @@
 #include <logmanager.h>
 #include <manager.h>
 
+#include <wx/menu.h>
+
 // Registra o plugin no Code::Blocks
 namespace
 {
     PluginRegistrant<LinguagensDLPlugin> reg("LinguagensDL");
+
+    const int idMenuExecutarArquivoAtual = wxNewId();
+    const wxString rotuloMenuPlugin = "Design &Liquido";
+    const wxString rotuloExecutarArquivo = "Executar arquivo atual";
 }
 
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
+    EVT_MENU(idMenuExecutarArquivoAtual, LinguagensDLPlugin::AoExecutarArquivoMenu)
 END_EVENT_TABLE()
 
 LinguagensDLPlugin::LinguagensDLPlugin()
@@ -63,6 +70,47 @@ void LinguagensDLPlugin::OnRelease(bool /*appShutDown*/)
     gerenciador_linguagens_ = nullptr;
 }
 
+void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
+{
+    if (!menuBar)
+        return;
+
+    const int posicaoMenu = menuBar->FindMenu(rotuloMenuPlugin);
+    wxMenu* menuPlugin = nullptr;
+
+    if (posicaoMenu == wxNOT_FOUND)
+    {
+        menuPlugin = new wxMenu();
+        menuBar->Append(menuPlugin, rotuloMenuPlugin);
+    }
+    else
+    {
+        menuPlugin = menuBar->GetMenu(posicaoMenu);
+    }
+
+    if (!menuPlugin)
+        return;
+
+    if (!menuPlugin->FindItem(idMenuExecutarArquivoAtual))
+        menuPlugin->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
+}
+
+void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* /*data*/)
+{
+    if (type != mtEditorManager || !menu)
+        return;
+
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor)
+        return;
+
+    if (!menu->FindItem(idMenuExecutarArquivoAtual))
+    {
+        menu->AppendSeparator();
+        menu->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
+    }
+}
+
 cbConfigurationPanel* LinguagensDLPlugin::GetConfigurationPanel(wxWindow* parent)
 {
     (void)parent;
@@ -86,7 +134,18 @@ void LinguagensDLPlugin::AoExecutarArquivoMenu(wxCommandEvent& evento)
     (void)evento;
 
     cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
-    if (!editor) return;
+    if (!editor)
+    {
+        Manager::Get()->GetLogManager()->LogWarning("LinguagensDL: nao ha editor ativo para executar.");
+        return;
+    }
+
+    if (editor->GetModified())
+    {
+        Manager::Get()->GetLogManager()->LogWarning(
+            "LinguagensDL: salve o arquivo antes de executar para evitar divergencia entre editor e runtime.");
+        return;
+    }
 
     executor_->ExecutarArquivo(editor->GetFilename());
 }

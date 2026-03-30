@@ -5,8 +5,9 @@
 #include <logmanager.h>
 #include <manager.h>
 
+#include <wx/arrstr.h>
 #include <wx/filename.h>
-#include <wx/process.h>
+#include <wx/utils.h>
 
 // Mapa simplificado de extensão → chave de runtime configurável
 static const struct { const wxChar* ext; const wxChar* key; } s_runtimeMap[] =
@@ -21,18 +22,53 @@ static const struct { const wxChar* ext; const wxChar* key; } s_runtimeMap[] =
     { wxT("alg"),      wxT("visualg.runtime")  },
 };
 
+namespace
+{
+    wxString RemoverAspasExternas(const wxString& valor)
+    {
+        if (valor.Length() >= 2 && valor.StartsWith("\"") && valor.EndsWith("\""))
+            return valor.Mid(1, valor.Length() - 2);
+        return valor;
+    }
+
+    wxString ConstruirComando(const wxString& executavel,
+                              const wxString& argumentosRuntime,
+                              const wxString& caminhoArquivo,
+                              const wxString& argumentosPrograma)
+    {
+        wxString comando = wxString::Format("\"%s\"", executavel);
+
+        if (!argumentosRuntime.IsEmpty())
+            comando << ' ' << argumentosRuntime;
+
+        comando << ' ' << wxString::Format("\"%s\"", caminhoArquivo);
+
+        if (!argumentosPrograma.IsEmpty())
+            comando << ' ' << argumentosPrograma;
+
+        return comando;
+    }
+}
+
 void Executor::ExecutarArquivo(const wxString& caminhoArquivo)
 {
     wxFileName arquivo(caminhoArquivo);
-    wxString extensao = arquivo.GetExt().Lower();
+    if (!arquivo.FileExists())
+    {
+        Manager::Get()->GetLogManager()->LogError(
+            wxString::Format("LinguagensDL: arquivo nao encontrado para execucao: %s", caminhoArquivo));
+        return;
+    }
 
-    if (extensao == "lmht" || extensao == "foles" || extensao == "lincones")
+    wxString extensao = arquivo.GetExt().Lower();
+    if (!ArquivoPossuiExecucaoDireta(extensao))
     {
         Manager::Get()->GetLogManager()->LogWarning(
             wxString::Format("LinguagensDL: a extensao '.%s' nao possui runtime de execucao direta.", extensao));
         return;
     }
 
+    wxString chaveRuntime = ObterChaveRuntimePorExtensao(extensao);
     wxString runtime = ObterRuntimeParaArquivo(caminhoArquivo);
     if (runtime.IsEmpty())
     {
@@ -41,31 +77,77 @@ void Executor::ExecutarArquivo(const wxString& caminhoArquivo)
         return;
     }
 
-    wxString comando = wxString::Format(wxT("\"%s\" \"%s\""), runtime, caminhoArquivo);
+    wxString executavelResolvido = ResolverExecutavel(runtime);
+    if (executavelResolvido.IsEmpty())
+    {
+        Manager::Get()->GetLogManager()->LogError(
+            wxString::Format("LinguagensDL: runtime '%s' nao foi encontrado no PATH nem em caminho absoluto.", runtime));
+        return;
+    }
+
+    wxString comando = ConstruirComando(
+        executavelResolvido,
+        ObterArgumentosRuntime(chaveRuntime),
+        caminhoArquivo,
+        ObterArgumentosPrograma(extensao));
+
     Manager::Get()->GetLogManager()->Log(
         wxString::Format("LinguagensDL: executando: %s", comando));
 
-    // TODO (Fase 3): substituir por execução assíncrona com captura de saída
-    // integrada ao painel de saída do Code::Blocks (usando cbProcess ou similar).
-    wxExecute(comando);
+    wxArrayString saidaPadrao;
+    wxArrayString saidaErro;
+    long codigoSaida = wxExecute(comando, saidaPadrao, saidaErro, wxEXEC_SYNC | wxEXEC_NODISABLE);
+
+    for (const wxString& linha : saidaPadrao)
+    {
+        if (!linha.IsEmpty())
+            Manager::Get()->GetLogManager()->Log(linha);
+    }
+
+    for (const wxString& linha : saidaErro)
+    {
+        if (!linha.IsEmpty())
+            Manager::Get()->GetLogManager()->LogError(linha);
+    }
+
+    if (codigoSaida == -1)
+    {
+        Manager::Get()->GetLogManager()->LogError("LinguagensDL: falha ao iniciar o processo do runtime.");
+        return;
+    }
+
+    Manager::Get()->GetLogManager()->Log(
+        wxString::Format("LinguagensDL: processo finalizado com codigo %ld", codigoSaida));
+}
+
+bool Executor::ArquivoPossuiExecucaoDireta(const wxString& extensao) const
+{
+    return !ObterChaveRuntimePorExtensao(extensao).IsEmpty();
 }
 
 wxString Executor::ObterRuntimeParaArquivo(const wxString& caminhoArquivo) const
 {
     wxFileName arquivo(caminhoArquivo);
     wxString extensao = arquivo.GetExt().Lower();
+    wxString chaveRuntime = ObterChaveRuntimePorExtensao(extensao);
+    if (chaveRuntime.IsEmpty())
+        return wxEmptyString;
 
+    wxString runtimeConfigurado = ObterRuntimeConfigurado(chaveRuntime);
+    if (!runtimeConfigurado.IsEmpty())
+        return runtimeConfigurado;
+
+    return ObterRuntimePadrao(chaveRuntime);
+}
+
+wxString Executor::ObterChaveRuntimePorExtensao(const wxString& extensao) const
+{
     for (const auto& entrada : s_runtimeMap)
     {
         if (extensao == entrada.ext)
-        {
-            wxString runtimeConfigurado = ObterRuntimeConfigurado(entrada.key);
-            if (!runtimeConfigurado.IsEmpty())
-                return runtimeConfigurado;
-
-            return ObterRuntimePadrao(entrada.key);
-        }
+            return entrada.key;
     }
+
     return wxEmptyString;
 }
 
@@ -73,6 +155,30 @@ wxString Executor::ObterRuntimeConfigurado(const wxString& chave) const
 {
     ConfigManager* configuracoes = Manager::Get()->GetConfigManager("linguagens_dl");
     return configuracoes ? configuracoes->Read(chave, wxEmptyString) : wxEmptyString;
+}
+
+wxString Executor::ObterArgumentosRuntime(const wxString& chaveRuntime) const
+{
+    if (chaveRuntime.IsEmpty())
+        return wxEmptyString;
+
+    ConfigManager* configuracoes = Manager::Get()->GetConfigManager("linguagens_dl");
+    if (!configuracoes)
+        return wxEmptyString;
+
+    return configuracoes->Read("args." + chaveRuntime, wxEmptyString);
+}
+
+wxString Executor::ObterArgumentosPrograma(const wxString& extensao) const
+{
+    if (extensao.IsEmpty())
+        return wxEmptyString;
+
+    ConfigManager* configuracoes = Manager::Get()->GetConfigManager("linguagens_dl");
+    if (!configuracoes)
+        return wxEmptyString;
+
+    return configuracoes->Read("program_args." + extensao, wxEmptyString);
 }
 
 wxString Executor::ObterRuntimePadrao(const wxString& chave) const
@@ -87,6 +193,63 @@ wxString Executor::ObterRuntimePadrao(const wxString& chave) const
         return "portugol-studio";
     if (chave == "visualg.runtime")
         return "visualg3";
+
+    return wxEmptyString;
+}
+
+wxString Executor::ResolverExecutavel(const wxString& runtime) const
+{
+    wxString candidato = RemoverAspasExternas(runtime);
+    if (candidato.IsEmpty())
+        return wxEmptyString;
+
+    wxFileName arquivo(candidato);
+    if (arquivo.IsAbsolute() || candidato.Find('\\') != wxNOT_FOUND || candidato.Find('/') != wxNOT_FOUND)
+        return arquivo.FileExists() ? arquivo.GetFullPath() : wxEmptyString;
+
+    wxArrayString extensoesExecutavel;
+#ifdef __WXMSW__
+    wxString pathExt;
+    if (wxGetEnv("PATHEXT", &pathExt) && !pathExt.IsEmpty())
+        extensoesExecutavel = GetArrayFromString(pathExt.Lower(), ";");
+    if (extensoesExecutavel.IsEmpty())
+    {
+        extensoesExecutavel.Add(".exe");
+        extensoesExecutavel.Add(".cmd");
+        extensoesExecutavel.Add(".bat");
+        extensoesExecutavel.Add(".com");
+    }
+#else
+    extensoesExecutavel.Add(wxEmptyString);
+#endif
+
+    const wxString nomeBase = arquivo.GetExt().IsEmpty() ? candidato : arquivo.GetFullName();
+    wxString valorPath;
+    if (!wxGetEnv("PATH", &valorPath) || valorPath.IsEmpty())
+        return wxEmptyString;
+
+    wxArrayString diretorios = GetArrayFromString(valorPath, wxPATH_SEP);
+    for (const wxString& diretorio : diretorios)
+    {
+        if (diretorio.IsEmpty())
+            continue;
+
+        wxFileName caminhoBase(diretorio, nomeBase);
+        if (caminhoBase.FileExists())
+            return caminhoBase.GetFullPath();
+
+#ifdef __WXMSW__
+        if (arquivo.GetExt().IsEmpty())
+        {
+            for (const wxString& extensao : extensoesExecutavel)
+            {
+                wxFileName caminhoComExt(diretorio, candidato + extensao);
+                if (caminhoComExt.FileExists())
+                    return caminhoComExt.GetFullPath();
+            }
+        }
+#endif
+    }
 
     return wxEmptyString;
 }

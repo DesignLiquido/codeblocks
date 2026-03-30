@@ -21,7 +21,12 @@ class Executor
         void ExecutarArquivo(const wxString& caminhoArquivo);
 
     private:
+        bool ArquivoPossuiExecucaoDireta(const wxString& extensao) const;
         wxString ObterRuntimeParaArquivo(const wxString& caminhoArquivo) const;
         wxString ObterRuntimeConfigurado(const wxString& chave) const;
         wxString ObterRuntimePadrao(const wxString& chave) const;
+        wxString ObterChaveRuntimePorExtensao(const wxString& extensao) const;
+        wxString ObterArgumentosRuntime(const wxString& chaveRuntime) const;
+        wxString ObterArgumentosPrograma(const wxString& extensao) const;
+        wxString ResolverExecutavel(const wxString& runtime) const;
 };

@@ -4,6 +4,8 @@
 
 class GerenciadorLinguagens;
 class Executor;
+class wxMenu;
+class wxMenuBar;
 
 /**
  * Plugin principal para suporte às linguagens da Design Líquido no Code::Blocks.
@@ -20,6 +22,8 @@ class LinguagensDLPlugin : public cbPlugin
 
         /** Retorna o painel de configurações do plugin (para Settings > Environment). */
         virtual cbConfigurationPanel* GetConfigurationPanel(wxWindow* parent) override;
+        virtual void BuildMenu(wxMenuBar* menuBar) override;
+        virtual void BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* data = nullptr) override;
 
     protected:
         virtual void OnAttach() override;
