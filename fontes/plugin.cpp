@@ -4,6 +4,7 @@
 
 #include <sdk.h>
 #include <cbeditor.h>
+#include <configurationpanel.h>
 #include <configmanager.h>
 #include <editormanager.h>
 #include <logmanager.h>
@@ -12,6 +13,11 @@
 #include <sdk_events.h>
 
 #include <wx/menu.h>
+#include <wx/sizer.h>
+#include <wx/stattext.h>
+#include <wx/textctrl.h>
+
+#include <vector>
 
 // Registra o plugin no Code::Blocks
 namespace
@@ -21,6 +27,106 @@ namespace
     const int idMenuExecutarArquivoAtual = wxNewId();
     const wxString rotuloMenuPlugin = "Design &Liquido";
     const wxString rotuloExecutarArquivo = "Executar arquivo atual";
+
+    struct CampoRuntime
+    {
+        wxString chave;
+        wxString rotulo;
+        wxTextCtrl* controle;
+    };
+
+    class PainelConfiguracaoLinguagensDL : public cbConfigurationPanel
+    {
+        public:
+            explicit PainelConfiguracaoLinguagensDL(wxWindow* parent)
+                : cbConfigurationPanel()
+            {
+                Create(parent, wxID_ANY);
+                ConstruirLayout();
+                CarregarValores();
+            }
+
+            wxString GetTitle() const override
+            {
+                return "Design Liquido";
+            }
+
+            wxString GetBitmapBaseName() const override
+            {
+                return "LinguagensDL";
+            }
+
+            void OnApply() override
+            {
+                ConfigManager* configuracoes = Manager::Get()->GetConfigManager("linguagens_dl");
+                if (!configuracoes)
+                    return;
+
+                for (const CampoRuntime& campo : campos_)
+                {
+                    wxString valor = campo.controle->GetValue();
+                    valor.Trim(true);
+                    valor.Trim(false);
+                    configuracoes->Write(campo.chave, valor);
+                }
+            }
+
+            void OnCancel() override
+            {
+                CarregarValores();
+            }
+
+            void OnPageChanging() override
+            {
+                CarregarValores();
+            }
+
+        private:
+            std::vector<CampoRuntime> campos_;
+
+            void ConstruirLayout()
+            {
+                wxBoxSizer* raiz = new wxBoxSizer(wxVERTICAL);
+                raiz->Add(
+                    new wxStaticText(
+                        this,
+                        wxID_ANY,
+                        "Configure os executaveis de runtime (caminho absoluto ou comando no PATH)."),
+                    0,
+                    wxALL,
+                    8);
+
+                AdicionarCampo(raiz, "delegua.runtime", "Delegua / Pitugues / BIRL / Egua:");
+                AdicionarCampo(raiz, "potigol.runtime", "Potigol:");
+                AdicionarCampo(raiz, "mapler.runtime", "Portugol Mapler:");
+                AdicionarCampo(raiz, "portugol.runtime", "Portugol Studio:");
+                AdicionarCampo(raiz, "visualg.runtime", "VisuAlg:");
+
+                SetSizerAndFit(raiz);
+            }
+
+            void AdicionarCampo(wxBoxSizer* raiz, const wxString& chave, const wxString& rotulo)
+            {
+                wxBoxSizer* linha = new wxBoxSizer(wxHORIZONTAL);
+                linha->Add(new wxStaticText(this, wxID_ANY, rotulo), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+
+                wxTextCtrl* controle = new wxTextCtrl(this, wxID_ANY);
+                linha->Add(controle, 1, wxEXPAND);
+
+                raiz->Add(linha, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 8);
+                campos_.push_back({ chave, rotulo, controle });
+            }
+
+            void CarregarValores()
+            {
+                ConfigManager* configuracoes = Manager::Get()->GetConfigManager("linguagens_dl");
+                if (!configuracoes)
+                    return;
+
+                for (const CampoRuntime& campo : campos_)
+                    campo.controle->SetValue(configuracoes->Read(campo.chave, wxEmptyString));
+            }
+    };
 }
 
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
@@ -150,9 +256,7 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
 
 cbConfigurationPanel* LinguagensDLPlugin::GetConfigurationPanel(wxWindow* parent)
 {
-    (void)parent;
-    // TODO: implementar painel de configurações (Fase 3)
-    return nullptr;
+    return new PainelConfiguracaoLinguagensDL(parent);
 }
 
 void LinguagensDLPlugin::AoAbrirEditor(CodeBlocksEvent& evento)
