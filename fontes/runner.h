@@ -11,8 +11,10 @@
 class Executor
 {
     public:
-        Executor()  = default;
+        explicit Executor(int indiceLogSaida = -1);
         ~Executor() = default;
+
+        void DefinirIndiceLogSaida(int indiceLogSaida);
 
         /**
          * Executa o arquivo indicado com o runtime correto.
@@ -21,6 +23,10 @@ class Executor
         void ExecutarArquivo(const wxString& caminhoArquivo);
 
     private:
+        void RegistrarMensagem(const wxString& mensagem, Logger::level nivel = Logger::info) const;
+
+        int indice_log_saida_;
+
         bool ArquivoPossuiExecucaoDireta(const wxString& extensao) const;
         wxString ObterRuntimeParaArquivo(const wxString& caminhoArquivo) const;
         wxString ObterRuntimeConfigurado(const wxString& chave) const;

@@ -2,6 +2,7 @@
 
 #include <sdk.h>
 #include <configmanager.h>
+#include <logger.h>
 #include <logmanager.h>
 #include <manager.h>
 
@@ -50,21 +51,45 @@ namespace
     }
 }
 
+Executor::Executor(int indiceLogSaida)
+    : indice_log_saida_(indiceLogSaida)
+{
+}
+
+void Executor::DefinirIndiceLogSaida(int indiceLogSaida)
+{
+    indice_log_saida_ = indiceLogSaida;
+}
+
+void Executor::RegistrarMensagem(const wxString& mensagem, Logger::level nivel) const
+{
+    LogManager* gerenciadorLogs = Manager::Get()->GetLogManager();
+    if (!gerenciadorLogs)
+        return;
+
+    if (indice_log_saida_ != LogManager::invalid_log)
+        gerenciadorLogs->Log(mensagem, indice_log_saida_, nivel);
+    else
+        gerenciadorLogs->Log(mensagem, LogManager::app_log, nivel);
+}
+
 void Executor::ExecutarArquivo(const wxString& caminhoArquivo)
 {
     wxFileName arquivo(caminhoArquivo);
     if (!arquivo.FileExists())
     {
-        Manager::Get()->GetLogManager()->LogError(
-            wxString::Format("LinguagensDL: arquivo nao encontrado para execucao: %s", caminhoArquivo));
+        RegistrarMensagem(
+            wxString::Format("LinguagensDL: arquivo nao encontrado para execucao: %s", caminhoArquivo),
+            Logger::error);
         return;
     }
 
     wxString extensao = arquivo.GetExt().Lower();
     if (!ArquivoPossuiExecucaoDireta(extensao))
     {
-        Manager::Get()->GetLogManager()->LogWarning(
-            wxString::Format("LinguagensDL: a extensao '.%s' nao possui runtime de execucao direta.", extensao));
+        RegistrarMensagem(
+            wxString::Format("LinguagensDL: a extensao '.%s' nao possui runtime de execucao direta.", extensao),
+            Logger::warning);
         return;
     }
 
@@ -72,16 +97,18 @@ void Executor::ExecutarArquivo(const wxString& caminhoArquivo)
     wxString runtime = ObterRuntimeParaArquivo(caminhoArquivo);
     if (runtime.IsEmpty())
     {
-        Manager::Get()->GetLogManager()->LogWarning(
-            wxString::Format("LinguagensDL: nenhum runtime configurado para '%s'", caminhoArquivo));
+        RegistrarMensagem(
+            wxString::Format("LinguagensDL: nenhum runtime configurado para '%s'", caminhoArquivo),
+            Logger::warning);
         return;
     }
 
     wxString executavelResolvido = ResolverExecutavel(runtime);
     if (executavelResolvido.IsEmpty())
     {
-        Manager::Get()->GetLogManager()->LogError(
-            wxString::Format("LinguagensDL: runtime '%s' nao foi encontrado no PATH nem em caminho absoluto.", runtime));
+        RegistrarMensagem(
+            wxString::Format("LinguagensDL: runtime '%s' nao foi encontrado no PATH nem em caminho absoluto.", runtime),
+            Logger::error);
         return;
     }
 
@@ -91,8 +118,7 @@ void Executor::ExecutarArquivo(const wxString& caminhoArquivo)
         caminhoArquivo,
         ObterArgumentosPrograma(extensao));
 
-    Manager::Get()->GetLogManager()->Log(
-        wxString::Format("LinguagensDL: executando: %s", comando));
+    RegistrarMensagem(wxString::Format("LinguagensDL: executando: %s", comando));
 
     wxArrayString saidaPadrao;
     wxArrayString saidaErro;
@@ -101,23 +127,22 @@ void Executor::ExecutarArquivo(const wxString& caminhoArquivo)
     for (const wxString& linha : saidaPadrao)
     {
         if (!linha.IsEmpty())
-            Manager::Get()->GetLogManager()->Log(linha);
+            RegistrarMensagem(linha);
     }
 
     for (const wxString& linha : saidaErro)
     {
         if (!linha.IsEmpty())
-            Manager::Get()->GetLogManager()->LogError(linha);
+            RegistrarMensagem(linha, Logger::error);
     }
 
     if (codigoSaida == -1)
     {
-        Manager::Get()->GetLogManager()->LogError("LinguagensDL: falha ao iniciar o processo do runtime.");
+        RegistrarMensagem("LinguagensDL: falha ao iniciar o processo do runtime.", Logger::error);
         return;
     }
 
-    Manager::Get()->GetLogManager()->Log(
-        wxString::Format("LinguagensDL: processo finalizado com codigo %ld", codigoSaida));
+    RegistrarMensagem(wxString::Format("LinguagensDL: processo finalizado com codigo %ld", codigoSaida));
 }
 
 bool Executor::ArquivoPossuiExecucaoDireta(const wxString& extensao) const

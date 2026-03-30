@@ -7,7 +7,9 @@
 #include <configmanager.h>
 #include <editormanager.h>
 #include <logmanager.h>
+#include <loggers.h>
 #include <manager.h>
+#include <sdk_events.h>
 
 #include <wx/menu.h>
 
@@ -28,6 +30,8 @@ END_EVENT_TABLE()
 LinguagensDLPlugin::LinguagensDLPlugin()
     : gerenciador_linguagens_(nullptr)
     , executor_(nullptr)
+    , logger_saida_(nullptr)
+    , indice_logger_saida_(LogManager::invalid_log)
 {
     // Recursos XRC ainda são opcionais enquanto o plugin não empacota um ZIP próprio.
     wxString arquivoRecursos = ConfigManager::LocateDataFile("LinguagensDL.zip", sdDataGlobal | sdDataUser);
@@ -44,8 +48,10 @@ LinguagensDLPlugin::~LinguagensDLPlugin()
 
 void LinguagensDLPlugin::OnAttach()
 {
+    GarantirLoggerSaida();
+
     gerenciador_linguagens_ = new GerenciadorLinguagens();
-    executor_               = new Executor();
+    executor_               = new Executor(indice_logger_saida_);
 
     // Registra extenções de arquivo para todas as linguagens suportadas
     gerenciador_linguagens_->RegistrarTodasExtensoesArquivo();
@@ -61,13 +67,44 @@ void LinguagensDLPlugin::OnAttach()
     }
 }
 
-void LinguagensDLPlugin::OnRelease(bool /*appShutDown*/)
+void LinguagensDLPlugin::OnRelease(bool appShutDown)
 {
+    if (!appShutDown)
+        LiberarLoggerSaida();
+    else
+    {
+        logger_saida_ = nullptr;
+        indice_logger_saida_ = LogManager::invalid_log;
+    }
+
     delete executor_;
     executor_ = nullptr;
 
     delete gerenciador_linguagens_;
     gerenciador_linguagens_ = nullptr;
+}
+
+void LinguagensDLPlugin::GarantirLoggerSaida()
+{
+    if (logger_saida_)
+        return;
+
+    logger_saida_ = new TextCtrlLogger(true);
+    CodeBlocksLogEvent eventoAdicionar(cbEVT_ADD_LOG_WINDOW, logger_saida_, "Linguagens DL");
+    Manager::Get()->ProcessEvent(eventoAdicionar);
+    indice_logger_saida_ = eventoAdicionar.logIndex;
+}
+
+void LinguagensDLPlugin::LiberarLoggerSaida()
+{
+    if (!logger_saida_)
+        return;
+
+    CodeBlocksLogEvent eventoRemover(cbEVT_REMOVE_LOG_WINDOW, logger_saida_);
+    Manager::Get()->ProcessEvent(eventoRemover);
+
+    logger_saida_ = nullptr;
+    indice_logger_saida_ = LogManager::invalid_log;
 }
 
 void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)

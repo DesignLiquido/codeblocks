@@ -4,6 +4,7 @@
 
 class GerenciadorLinguagens;
 class Executor;
+class TextCtrlLogger;
 class wxMenu;
 class wxMenuBar;
 
@@ -32,6 +33,11 @@ class LinguagensDLPlugin : public cbPlugin
     private:
         GerenciadorLinguagens* gerenciador_linguagens_;
         Executor*              executor_;
+        TextCtrlLogger*        logger_saida_;
+        int                    indice_logger_saida_;
+
+        void GarantirLoggerSaida();
+        void LiberarLoggerSaida();
 
         void AoAbrirEditor(CodeBlocksEvent& evento);
         void AoExecutarArquivoMenu(wxCommandEvent& evento);
