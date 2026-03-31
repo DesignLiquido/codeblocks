@@ -3,10 +3,12 @@
 #include <cbplugin.h>
 
 class GerenciadorLinguagens;
+class ProvedorCompletude;
 class Executor;
 class TextCtrlLogger;
 class wxMenu;
 class wxMenuBar;
+class wxScintillaEvent;
 
 /**
  * Plugin principal para suporte às linguagens da Design Líquido no Code::Blocks.
@@ -32,14 +34,18 @@ class LinguagensDLPlugin : public cbPlugin
 
     private:
         GerenciadorLinguagens* gerenciador_linguagens_;
+        ProvedorCompletude*    provedor_completude_;
         Executor*              executor_;
         TextCtrlLogger*        logger_saida_;
         int                    indice_logger_saida_;
 
         void GarantirLoggerSaida();
         void LiberarLoggerSaida();
+        void ConfigurarEditorParaCompletude(cbEditor* editor);
+        void RemoverGanchosCompletude();
 
         void AoAbrirEditor(CodeBlocksEvent& evento);
+        void AoCaractereAdicionado(wxScintillaEvent& evento);
         void AoExecutarArquivoMenu(wxCommandEvent& evento);
 
         DECLARE_EVENT_TABLE()

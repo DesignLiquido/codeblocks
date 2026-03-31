@@ -50,6 +50,8 @@
 
         <Unit filename="fontes/plugin.h" />
         <Unit filename="fontes/plugin.cpp" />
+        <Unit filename="fontes/completion.h" />
+        <Unit filename="fontes/completion.cpp" />
         <Unit filename="fontes/manager.h" />
         <Unit filename="fontes/manager.cpp" />
         <Unit filename="fontes/runner.h" />

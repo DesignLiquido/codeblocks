@@ -23,12 +23,14 @@ find_package(wxWidgets COMPONENTS core base aui xrc REQUIRED)
 include(${wxWidgets_USE_FILE})
 
 set(PLUGIN_SOURCES
+    fontes/completion.cpp
     fontes/plugin.cpp
     fontes/manager.cpp
     fontes/runner.cpp
 )
 
 set(PLUGIN_HEADERS
+    fontes/completion.h
     fontes/plugin.h
     fontes/manager.h
     fontes/runner.h

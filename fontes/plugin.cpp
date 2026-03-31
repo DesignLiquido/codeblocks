@@ -1,4 +1,5 @@
 #include "plugin.h"
+#include "completion.h"
 #include "manager.h"
 #include "runner.h"
 
@@ -12,6 +13,7 @@
 #include <manager.h>
 #include <sdk_events.h>
 
+#include <cbstyledtextctrl.h>
 #include <wx/menu.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -135,6 +137,7 @@ END_EVENT_TABLE()
 
 LinguagensDLPlugin::LinguagensDLPlugin()
     : gerenciador_linguagens_(nullptr)
+    , provedor_completude_(nullptr)
     , executor_(nullptr)
     , logger_saida_(nullptr)
     , indice_logger_saida_(LogManager::invalid_log)
@@ -157,6 +160,7 @@ void LinguagensDLPlugin::OnAttach()
     GarantirLoggerSaida();
 
     gerenciador_linguagens_ = new GerenciadorLinguagens();
+    provedor_completude_    = new ProvedorCompletude(gerenciador_linguagens_);
     executor_               = new Executor(indice_logger_saida_);
 
     // Registra extenções de arquivo para todas as linguagens suportadas
@@ -169,6 +173,7 @@ void LinguagensDLPlugin::OnAttach()
     cbEditor* editorAtivo = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (editorAtivo)
     {
+        ConfigurarEditorParaCompletude(editorAtivo);
         gerenciador_linguagens_->AplicarRealce(editorAtivo, editorAtivo->GetFilename());
     }
 }
@@ -185,6 +190,11 @@ void LinguagensDLPlugin::OnRelease(bool appShutDown)
 
     delete executor_;
     executor_ = nullptr;
+
+    RemoverGanchosCompletude();
+
+    delete provedor_completude_;
+    provedor_completude_ = nullptr;
 
     delete gerenciador_linguagens_;
     gerenciador_linguagens_ = nullptr;
@@ -238,6 +248,38 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
         menuPlugin->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
 }
 
+void LinguagensDLPlugin::ConfigurarEditorParaCompletude(cbEditor* editor)
+{
+    if (!editor || !editor->GetControl())
+        return;
+
+    editor->GetControl()->Connect(
+        wxEVT_SCI_CHARADDED,
+        wxScintillaEventHandler(LinguagensDLPlugin::AoCaractereAdicionado),
+        nullptr,
+        this);
+}
+
+void LinguagensDLPlugin::RemoverGanchosCompletude()
+{
+    EditorManager* gerenciadorEditores = Manager::Get()->GetEditorManager();
+    if (!gerenciadorEditores)
+        return;
+
+    for (int i = 0; i < gerenciadorEditores->GetEditorsCount(); ++i)
+    {
+        cbEditor* editor = gerenciadorEditores->GetBuiltinEditor(i);
+        if (!editor || !editor->GetControl())
+            continue;
+
+        editor->GetControl()->Disconnect(
+            wxEVT_SCI_CHARADDED,
+            wxScintillaEventHandler(LinguagensDLPlugin::AoCaractereAdicionado),
+            nullptr,
+            this);
+    }
+}
+
 void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* /*data*/)
 {
     if (type != mtEditorManager || !menu)
@@ -264,8 +306,25 @@ void LinguagensDLPlugin::AoAbrirEditor(CodeBlocksEvent& evento)
     cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinEditor(evento.GetEditor());
     if (!editor) return;
 
+    ConfigurarEditorParaCompletude(editor);
+
     wxString nomeArquivo = editor->GetFilename();
     gerenciador_linguagens_->AplicarRealce(editor, nomeArquivo);
+
+    evento.Skip();
+}
+
+void LinguagensDLPlugin::AoCaractereAdicionado(wxScintillaEvent& evento)
+{
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor || editor->GetControl() != evento.GetEventObject())
+    {
+        evento.Skip();
+        return;
+    }
+
+    if (provedor_completude_)
+        provedor_completude_->TalvezExibirCompletude(editor, evento.GetKey());
 
     evento.Skip();
 }
