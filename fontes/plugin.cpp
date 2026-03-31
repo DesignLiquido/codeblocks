@@ -39,6 +39,9 @@ namespace
     const int idMenuExecutarArquivoAtual = wxNewId();
     const int idMenuNovoProjeto = wxNewId();
     const int idMenuFormatarArquivoAtual = wxNewId();
+    const int idMenuDobrarCodigo = wxNewId();
+    const int idMenuExpandirCodigo = wxNewId();
+    const int idMenuAlternarDobrasCodigo = wxNewId();
     const int idMenuDepurarArquivoAtual = wxNewId();
     const int idMenuContinuarDepuracao = wxNewId();
     const int idMenuPassoSobre = wxNewId();
@@ -49,6 +52,9 @@ namespace
     const wxString rotuloMenuPlugin = "Design &Liquido";
     const wxString rotuloNovoProjeto = "Novo projeto Delégua...";
     const wxString rotuloFormatarArquivo = "Formatar arquivo atual";
+    const wxString rotuloDobrarCodigo = "Dobrar codigo (todos os blocos)";
+    const wxString rotuloExpandirCodigo = "Expandir codigo (todos os blocos)";
+    const wxString rotuloAlternarDobrasCodigo = "Alternar dobras de codigo";
     const wxString rotuloExecutarArquivo = "Executar arquivo atual";
     const wxString rotuloDepurarArquivo = "Depurar arquivo atual (experimental)";
     const wxString rotuloContinuarDepuracao = "Depurador: continuar";
@@ -163,6 +169,9 @@ namespace
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
     EVT_MENU(idMenuNovoProjeto, LinguagensDLPlugin::AoNovoProjetoMenu)
     EVT_MENU(idMenuFormatarArquivoAtual, LinguagensDLPlugin::AoFormatarArquivoMenu)
+    EVT_MENU(idMenuDobrarCodigo, LinguagensDLPlugin::AoDobrarCodigoMenu)
+    EVT_MENU(idMenuExpandirCodigo, LinguagensDLPlugin::AoExpandirCodigoMenu)
+    EVT_MENU(idMenuAlternarDobrasCodigo, LinguagensDLPlugin::AoAlternarDobrasCodigoMenu)
     EVT_MENU(idMenuExecutarArquivoAtual, LinguagensDLPlugin::AoExecutarArquivoMenu)
     EVT_MENU(idMenuDepurarArquivoAtual, LinguagensDLPlugin::AoDepurarArquivoMenu)
     EVT_MENU(idMenuContinuarDepuracao, LinguagensDLPlugin::AoContinuarDepuracaoMenu)
@@ -382,6 +391,9 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
         menuPlugin->Append(idMenuNovoProjeto, rotuloNovoProjeto);
         menuPlugin->AppendSeparator();
         menuPlugin->Append(idMenuFormatarArquivoAtual, rotuloFormatarArquivo);
+        menuPlugin->Append(idMenuDobrarCodigo, rotuloDobrarCodigo);
+        menuPlugin->Append(idMenuExpandirCodigo, rotuloExpandirCodigo);
+        menuPlugin->Append(idMenuAlternarDobrasCodigo, rotuloAlternarDobrasCodigo);
         menuPlugin->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
     }
 
@@ -453,6 +465,9 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
         menu->AppendSeparator();
         menu->Append(idMenuNovoProjeto, rotuloNovoProjeto);
         menu->Append(idMenuFormatarArquivoAtual, rotuloFormatarArquivo);
+        menu->Append(idMenuDobrarCodigo, rotuloDobrarCodigo);
+        menu->Append(idMenuExpandirCodigo, rotuloExpandirCodigo);
+        menu->Append(idMenuAlternarDobrasCodigo, rotuloAlternarDobrasCodigo);
         menu->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
         menu->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
         menu->Append(idMenuContinuarDepuracao, rotuloContinuarDepuracao);
@@ -684,6 +699,39 @@ void LinguagensDLPlugin::AoFormatarArquivoMenu(wxCommandEvent& evento)
 
     editor->Reload();
     logs->Log("LinguagensDL: formatacao concluida.", indice_logger_saida_);
+}
+
+void LinguagensDLPlugin::AoDobrarCodigoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor)
+        return;
+
+    editor->FoldAll();
+}
+
+void LinguagensDLPlugin::AoExpandirCodigoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor)
+        return;
+
+    editor->UnfoldAll();
+}
+
+void LinguagensDLPlugin::AoAlternarDobrasCodigoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor)
+        return;
+
+    editor->ToggleAllFolds();
 }
 
 void LinguagensDLPlugin::AoDepurarArquivoMenu(wxCommandEvent& evento)
