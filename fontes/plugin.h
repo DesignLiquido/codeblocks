@@ -57,6 +57,9 @@ class LinguagensDLPlugin : public cbPlugin
         void AoCaractereAdicionado(wxScintillaEvent& evento);
         void AoNovoProjetoMenu(wxCommandEvent& evento);
         void AoFormatarArquivoMenu(wxCommandEvent& evento);
+        void AoTraduzirVisualgParaDeleguaMenu(wxCommandEvent& evento);
+        void AoTraduzirDeleguaParaJsMenu(wxCommandEvent& evento);
+        void AoTraduzirDeleguaParaVisualgMenu(wxCommandEvent& evento);
         void AoDobrarCodigoMenu(wxCommandEvent& evento);
         void AoExpandirCodigoMenu(wxCommandEvent& evento);
         void AoAlternarDobrasCodigoMenu(wxCommandEvent& evento);
@@ -68,6 +71,7 @@ class LinguagensDLPlugin : public cbPlugin
         void AoPassoForaMenu(wxCommandEvent& evento);
         void AoPararDepuracaoMenu(wxCommandEvent& evento);
         void AoAtualizarWatchMenu(wxCommandEvent& evento);
+        void ExecutarTraducao(const wxString& origem, const wxString& destino, const wxString& extensaoDestino);
 
         DECLARE_EVENT_TABLE()
 };

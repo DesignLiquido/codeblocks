@@ -39,6 +39,9 @@ namespace
     const int idMenuExecutarArquivoAtual = wxNewId();
     const int idMenuNovoProjeto = wxNewId();
     const int idMenuFormatarArquivoAtual = wxNewId();
+    const int idMenuTraduzirVisualgParaDelegua = wxNewId();
+    const int idMenuTraduzirDeleguaParaJs = wxNewId();
+    const int idMenuTraduzirDeleguaParaVisualg = wxNewId();
     const int idMenuDobrarCodigo = wxNewId();
     const int idMenuExpandirCodigo = wxNewId();
     const int idMenuAlternarDobrasCodigo = wxNewId();
@@ -52,6 +55,9 @@ namespace
     const wxString rotuloMenuPlugin = "Design &Liquido";
     const wxString rotuloNovoProjeto = "Novo projeto Delégua...";
     const wxString rotuloFormatarArquivo = "Formatar arquivo atual";
+    const wxString rotuloTraduzirVisualgParaDelegua = "Traduzir: VisuAlg -> Delegua";
+    const wxString rotuloTraduzirDeleguaParaJs = "Traduzir: Delegua -> JavaScript";
+    const wxString rotuloTraduzirDeleguaParaVisualg = "Traduzir: Delegua -> VisuAlg";
     const wxString rotuloDobrarCodigo = "Dobrar codigo (todos os blocos)";
     const wxString rotuloExpandirCodigo = "Expandir codigo (todos os blocos)";
     const wxString rotuloAlternarDobrasCodigo = "Alternar dobras de codigo";
@@ -138,6 +144,7 @@ namespace
                 AdicionarCampo(raiz, "portugol.runtime", "Portugol Studio:");
                 AdicionarCampo(raiz, "visualg.runtime", "VisuAlg:");
                 AdicionarCampo(raiz, "formatter.command", "Formatador ({file}):");
+                AdicionarCampo(raiz, "translator.command", "Tradutor ({file} {from} {to} {out}):");
 
                 SetSizerAndFit(raiz);
             }
@@ -169,6 +176,9 @@ namespace
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
     EVT_MENU(idMenuNovoProjeto, LinguagensDLPlugin::AoNovoProjetoMenu)
     EVT_MENU(idMenuFormatarArquivoAtual, LinguagensDLPlugin::AoFormatarArquivoMenu)
+    EVT_MENU(idMenuTraduzirVisualgParaDelegua, LinguagensDLPlugin::AoTraduzirVisualgParaDeleguaMenu)
+    EVT_MENU(idMenuTraduzirDeleguaParaJs, LinguagensDLPlugin::AoTraduzirDeleguaParaJsMenu)
+    EVT_MENU(idMenuTraduzirDeleguaParaVisualg, LinguagensDLPlugin::AoTraduzirDeleguaParaVisualgMenu)
     EVT_MENU(idMenuDobrarCodigo, LinguagensDLPlugin::AoDobrarCodigoMenu)
     EVT_MENU(idMenuExpandirCodigo, LinguagensDLPlugin::AoExpandirCodigoMenu)
     EVT_MENU(idMenuAlternarDobrasCodigo, LinguagensDLPlugin::AoAlternarDobrasCodigoMenu)
@@ -391,6 +401,9 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
         menuPlugin->Append(idMenuNovoProjeto, rotuloNovoProjeto);
         menuPlugin->AppendSeparator();
         menuPlugin->Append(idMenuFormatarArquivoAtual, rotuloFormatarArquivo);
+        menuPlugin->Append(idMenuTraduzirVisualgParaDelegua, rotuloTraduzirVisualgParaDelegua);
+        menuPlugin->Append(idMenuTraduzirDeleguaParaJs, rotuloTraduzirDeleguaParaJs);
+        menuPlugin->Append(idMenuTraduzirDeleguaParaVisualg, rotuloTraduzirDeleguaParaVisualg);
         menuPlugin->Append(idMenuDobrarCodigo, rotuloDobrarCodigo);
         menuPlugin->Append(idMenuExpandirCodigo, rotuloExpandirCodigo);
         menuPlugin->Append(idMenuAlternarDobrasCodigo, rotuloAlternarDobrasCodigo);
@@ -465,6 +478,9 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
         menu->AppendSeparator();
         menu->Append(idMenuNovoProjeto, rotuloNovoProjeto);
         menu->Append(idMenuFormatarArquivoAtual, rotuloFormatarArquivo);
+        menu->Append(idMenuTraduzirVisualgParaDelegua, rotuloTraduzirVisualgParaDelegua);
+        menu->Append(idMenuTraduzirDeleguaParaJs, rotuloTraduzirDeleguaParaJs);
+        menu->Append(idMenuTraduzirDeleguaParaVisualg, rotuloTraduzirDeleguaParaVisualg);
         menu->Append(idMenuDobrarCodigo, rotuloDobrarCodigo);
         menu->Append(idMenuExpandirCodigo, rotuloExpandirCodigo);
         menu->Append(idMenuAlternarDobrasCodigo, rotuloAlternarDobrasCodigo);
@@ -699,6 +715,93 @@ void LinguagensDLPlugin::AoFormatarArquivoMenu(wxCommandEvent& evento)
 
     editor->Reload();
     logs->Log("LinguagensDL: formatacao concluida.", indice_logger_saida_);
+}
+
+void LinguagensDLPlugin::ExecutarTraducao(const wxString& origem, const wxString& destino, const wxString& extensaoDestino)
+{
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor)
+    {
+        Manager::Get()->GetLogManager()->LogWarning("LinguagensDL: nao ha editor ativo para traduzir.");
+        return;
+    }
+
+    if (editor->GetModified() && !editor->Save())
+    {
+        Manager::Get()->GetLogManager()->LogWarning("LinguagensDL: nao foi possivel salvar o arquivo antes da traducao.");
+        return;
+    }
+
+    const wxString caminhoArquivo = editor->GetFilename();
+    wxFileName arquivoOrigem(caminhoArquivo);
+    const wxString arquivoSaida = wxFileName(
+        arquivoOrigem.GetPath(),
+        arquivoOrigem.GetName() + ".traduzido." + extensaoDestino).GetFullPath();
+
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("linguagens_dl");
+    wxString comando = cfg
+        ? cfg->Read(
+            "translator.command",
+            wxString("delegua traduzir --de \"{from}\" --para \"{to}\" --arquivo \"{file}\" --saida \"{out}\""))
+        : wxString("delegua traduzir --de \"{from}\" --para \"{to}\" --arquivo \"{file}\" --saida \"{out}\"");
+
+    comando.Trim(true);
+    comando.Trim(false);
+    if (comando.IsEmpty())
+    {
+        Manager::Get()->GetLogManager()->LogWarning(
+            "LinguagensDL: configure 'translator.command' nas configuracoes do plugin.");
+        return;
+    }
+
+    comando.Replace("{file}", wxString::Format("\"%s\"", caminhoArquivo));
+    comando.Replace("{from}", origem);
+    comando.Replace("{to}", destino);
+    comando.Replace("{out}", wxString::Format("\"%s\"", arquivoSaida));
+
+    wxArrayString saida;
+    wxArrayString erros;
+    const long codigo = wxExecute(comando, saida, erros);
+
+    LogManager* logs = Manager::Get()->GetLogManager();
+    if (!logs)
+        return;
+
+    for (const wxString& linha : saida)
+        logs->Log(linha, indice_logger_saida_);
+    for (const wxString& linha : erros)
+        logs->Log(linha, indice_logger_saida_, Logger::warning);
+
+    if (codigo != 0)
+    {
+        logs->Log(
+            wxString::Format("LinguagensDL: tradutor retornou codigo %ld.", codigo),
+            indice_logger_saida_,
+            Logger::error);
+        return;
+    }
+
+    logs->Log(wxString::Format("LinguagensDL: traducao concluida (%s -> %s).", origem, destino), indice_logger_saida_);
+    if (wxFileExists(arquivoSaida))
+        Manager::Get()->GetEditorManager()->Open(arquivoSaida);
+}
+
+void LinguagensDLPlugin::AoTraduzirVisualgParaDeleguaMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    ExecutarTraducao("visualg", "delegua", "delegua");
+}
+
+void LinguagensDLPlugin::AoTraduzirDeleguaParaJsMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    ExecutarTraducao("delegua", "javascript", "js");
+}
+
+void LinguagensDLPlugin::AoTraduzirDeleguaParaVisualgMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    ExecutarTraducao("delegua", "visualg", "alg");
 }
 
 void LinguagensDLPlugin::AoDobrarCodigoMenu(wxCommandEvent& evento)
