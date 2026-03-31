@@ -48,6 +48,8 @@ class LinguagensDLPlugin : public cbPlugin
         void GarantirLoggerWatch();
         void LiberarLoggerWatch();
         void AtualizarPainelWatch();
+        void MarcarLinhaAtualDepuracao(cbEditor* editor);
+        void LimparMarcadoresDepuracao();
         void ConfigurarEditorParaCompletude(cbEditor* editor);
         void RemoverGanchosCompletude();
 

@@ -208,6 +208,8 @@ void LinguagensDLPlugin::OnAttach()
 
 void LinguagensDLPlugin::OnRelease(bool appShutDown)
 {
+    LimparMarcadoresDepuracao();
+
     if (!appShutDown)
     {
         LiberarLoggerWatch();
@@ -309,6 +311,34 @@ void LinguagensDLPlugin::AtualizarPainelWatch()
     logs->Log("LinguagensDL: variaveis atuais", indice_logger_watch_);
     for (const wxString& linha : variaveis)
         logs->Log("  " + linha, indice_logger_watch_);
+}
+
+void LinguagensDLPlugin::MarcarLinhaAtualDepuracao(cbEditor* editor)
+{
+    if (!editor || !editor->GetControl())
+        return;
+
+    const int linhaAtual = editor->GetControl()->GetCurrentLine();
+    editor->AddBreakpoint(linhaAtual, false);
+    editor->SetDebugLine(linhaAtual);
+    editor->RefreshBreakpointMarkers();
+}
+
+void LinguagensDLPlugin::LimparMarcadoresDepuracao()
+{
+    EditorManager* gerenciadorEditores = Manager::Get()->GetEditorManager();
+    if (!gerenciadorEditores)
+        return;
+
+    for (int i = 0; i < gerenciadorEditores->GetEditorsCount(); ++i)
+    {
+        cbEditor* editor = gerenciadorEditores->GetBuiltinEditor(i);
+        if (!editor)
+            continue;
+
+        editor->SetDebugLine(-1);
+        editor->RefreshBreakpointMarkers();
+    }
 }
 
 void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
@@ -488,6 +518,7 @@ void LinguagensDLPlugin::AoDepurarArquivoMenu(wxCommandEvent& evento)
     if (!ponte_depurador_->IniciarSessao(adaptador, arquivo, args))
         return;
 
+    MarcarLinhaAtualDepuracao(editor);
     ponte_depurador_->DefinirBreakpoint(arquivo, editor->GetControl()->GetCurrentLine() + 1);
     ponte_depurador_->ContinuarExecucao();
     AtualizarPainelWatch();
@@ -515,6 +546,8 @@ void LinguagensDLPlugin::AoPassoSobreMenu(wxCommandEvent& evento)
         return;
 
     ponte_depurador_->PassoSobre();
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    MarcarLinhaAtualDepuracao(editor);
     AtualizarPainelWatch();
 }
 
@@ -525,6 +558,8 @@ void LinguagensDLPlugin::AoPassoDentroMenu(wxCommandEvent& evento)
         return;
 
     ponte_depurador_->PassoDentro();
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    MarcarLinhaAtualDepuracao(editor);
     AtualizarPainelWatch();
 }
 
@@ -535,6 +570,8 @@ void LinguagensDLPlugin::AoPassoForaMenu(wxCommandEvent& evento)
         return;
 
     ponte_depurador_->PassoFora();
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    MarcarLinhaAtualDepuracao(editor);
     AtualizarPainelWatch();
 }
 
@@ -545,4 +582,5 @@ void LinguagensDLPlugin::AoPararDepuracaoMenu(wxCommandEvent& evento)
         return;
 
     ponte_depurador_->EncerrarSessao();
+    LimparMarcadoresDepuracao();
 }
