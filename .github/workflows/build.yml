@@ -24,7 +24,14 @@ jobs:
 
       - name: Build
         run: |
-          cmake --build build --config Release -j2
+          cmake --build build --config Release -j2 2>&1 | tee build.log || true
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo '### Build Errors' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -i 'error\|fatal' build.log | head -80 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
   build-windows:
     runs-on: windows-latest
@@ -52,4 +59,11 @@ jobs:
       - name: Build
         shell: msys2 {0}
         run: |
-          cmake --build build --config Release -j2
+          cmake --build build --config Release -j2 2>&1 | tee build.log || true
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo '### Build Errors' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -i 'error\|fatal' build.log | head -80 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

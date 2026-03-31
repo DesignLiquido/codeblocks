@@ -100,7 +100,12 @@ if(LINGUAGENS_DL_BUILD_SHARED)
 endif()
 
 if(NOT LINGUAGENS_DL_BUILD_SHARED)
-    target_compile_definitions(linguagens-dl PRIVATE DLLIMPORT= EVTIMPORT=)
+    target_compile_definitions(linguagens-dl PRIVATE
+        DLLIMPORT=
+        EVTIMPORT=
+        PLUGIN_EXPORT=
+        BUILDING_PLUGIN
+    )
 endif()
 
 if(WIN32)
