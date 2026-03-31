@@ -46,6 +46,9 @@ class GerenciadorLinguagens
 
     private:
         void ConstruirCatalogoLinguagens();
+        void CarregarPalavrasChaveExternas();
+        wxString CarregarPalavrasChaveDoArquivo(const wxString& caminhoArquivo) const;
+        wxString ObterCaminhoArquivoPalavrasChave(const wxString& extensao) const;
         wxString ConstruirMascarasPorPerfil(const wxString& perfilBase) const;
 
         std::vector<InformacoesLinguagem> linguagens_;

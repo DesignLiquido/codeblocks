@@ -10,6 +10,7 @@
 
 #include <wx/filename.h>
 #include <wx/arrstr.h>
+#include <wx/xml/xml.h>
 
 // Constantes Scintilla usadas como lexers base
 // Definidas em <Scintilla/include/SciLexer.h>, incluído pelo CB SDK
@@ -190,6 +191,75 @@ void GerenciadorLinguagens::ConstruirCatalogoLinguagens()
             mapaExtensao_[extensao.Lower()] = &linguagem;
         }
     }
+
+    CarregarPalavrasChaveExternas();
+}
+
+void GerenciadorLinguagens::CarregarPalavrasChaveExternas()
+{
+    for (auto& linguagem : linguagens_)
+    {
+        if (linguagem.extensoes.empty())
+            continue;
+
+        const wxString caminhoArquivo = ObterCaminhoArquivoPalavrasChave(linguagem.extensoes.front());
+        if (caminhoArquivo.IsEmpty())
+            continue;
+
+        const wxString palavrasCarregadas = CarregarPalavrasChaveDoArquivo(caminhoArquivo);
+        if (palavrasCarregadas.IsEmpty())
+            continue;
+
+        linguagem.palavrasChave = palavrasCarregadas;
+    }
+}
+
+wxString GerenciadorLinguagens::CarregarPalavrasChaveDoArquivo(const wxString& caminhoArquivo) const
+{
+    wxXmlDocument documento;
+    if (!documento.Load(caminhoArquivo))
+        return wxEmptyString;
+
+    wxXmlNode* raiz = documento.GetRoot();
+    if (!raiz)
+        return wxEmptyString;
+
+    wxString palavras;
+    for (wxXmlNode* no = raiz->GetChildren(); no; no = no->GetNext())
+    {
+        if (no->GetType() != wxXML_ELEMENT_NODE)
+            continue;
+
+        if (no->GetName() != "set" && no->GetName() != "grupo")
+            continue;
+
+        wxString conteudo;
+        for (wxXmlNode* filho = no->GetChildren(); filho; filho = filho->GetNext())
+        {
+            if (filho->GetType() == wxXML_TEXT_NODE || filho->GetType() == wxXML_CDATA_SECTION_NODE)
+                conteudo.Append(filho->GetContent());
+        }
+
+        conteudo.Trim(true);
+        conteudo.Trim(false);
+        if (conteudo.IsEmpty())
+            continue;
+
+        if (!palavras.IsEmpty())
+            palavras.Append(' ');
+        palavras.Append(conteudo);
+    }
+
+    return palavras;
+}
+
+wxString GerenciadorLinguagens::ObterCaminhoArquivoPalavrasChave(const wxString& extensao) const
+{
+    wxFileName arquivoLocal(wxString::Format("recursos/palavras-chave/%s.xml", extensao));
+    if (arquivoLocal.FileExists())
+        return arquivoLocal.GetFullPath();
+
+    return wxEmptyString;
 }
 
 wxString GerenciadorLinguagens::ConstruirMascarasPorPerfil(const wxString& perfilBase) const
