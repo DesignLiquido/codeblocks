@@ -20,7 +20,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCBSDK_PATH=/usr
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLINGUAGENS_DL_BUILD_SHARED=OFF
 
       - name: Build
         run: |
@@ -36,16 +36,18 @@ jobs:
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
+          msystem: MINGW64
           update: true
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
             mingw-w64-x86_64-wxwidgets3.2-msw
 
       - name: Configure
         shell: msys2 {0}
         run: |
-          cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLINGUAGENS_DL_BUILD_SHARED=OFF
 
       - name: Build
         shell: msys2 {0}
