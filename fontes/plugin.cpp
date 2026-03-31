@@ -27,6 +27,7 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/choicdlg.h>
+#include <wx/utils.h>
 
 #include <vector>
 
@@ -37,6 +38,7 @@ namespace
 
     const int idMenuExecutarArquivoAtual = wxNewId();
     const int idMenuNovoProjeto = wxNewId();
+    const int idMenuFormatarArquivoAtual = wxNewId();
     const int idMenuDepurarArquivoAtual = wxNewId();
     const int idMenuContinuarDepuracao = wxNewId();
     const int idMenuPassoSobre = wxNewId();
@@ -46,6 +48,7 @@ namespace
     const int idMenuAtualizarWatch = wxNewId();
     const wxString rotuloMenuPlugin = "Design &Liquido";
     const wxString rotuloNovoProjeto = "Novo projeto Delégua...";
+    const wxString rotuloFormatarArquivo = "Formatar arquivo atual";
     const wxString rotuloExecutarArquivo = "Executar arquivo atual";
     const wxString rotuloDepurarArquivo = "Depurar arquivo atual (experimental)";
     const wxString rotuloContinuarDepuracao = "Depurador: continuar";
@@ -128,6 +131,7 @@ namespace
                 AdicionarCampo(raiz, "mapler.runtime", "Portugol Mapler:");
                 AdicionarCampo(raiz, "portugol.runtime", "Portugol Studio:");
                 AdicionarCampo(raiz, "visualg.runtime", "VisuAlg:");
+                AdicionarCampo(raiz, "formatter.command", "Formatador ({file}):");
 
                 SetSizerAndFit(raiz);
             }
@@ -158,6 +162,7 @@ namespace
 
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
     EVT_MENU(idMenuNovoProjeto, LinguagensDLPlugin::AoNovoProjetoMenu)
+    EVT_MENU(idMenuFormatarArquivoAtual, LinguagensDLPlugin::AoFormatarArquivoMenu)
     EVT_MENU(idMenuExecutarArquivoAtual, LinguagensDLPlugin::AoExecutarArquivoMenu)
     EVT_MENU(idMenuDepurarArquivoAtual, LinguagensDLPlugin::AoDepurarArquivoMenu)
     EVT_MENU(idMenuContinuarDepuracao, LinguagensDLPlugin::AoContinuarDepuracaoMenu)
@@ -376,6 +381,7 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
     {
         menuPlugin->Append(idMenuNovoProjeto, rotuloNovoProjeto);
         menuPlugin->AppendSeparator();
+        menuPlugin->Append(idMenuFormatarArquivoAtual, rotuloFormatarArquivo);
         menuPlugin->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
     }
 
@@ -446,6 +452,7 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
     {
         menu->AppendSeparator();
         menu->Append(idMenuNovoProjeto, rotuloNovoProjeto);
+        menu->Append(idMenuFormatarArquivoAtual, rotuloFormatarArquivo);
         menu->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
         menu->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
         menu->Append(idMenuContinuarDepuracao, rotuloContinuarDepuracao);
@@ -614,6 +621,69 @@ void LinguagensDLPlugin::AoExecutarArquivoMenu(wxCommandEvent& evento)
     }
 
     executor_->ExecutarArquivo(editor->GetFilename());
+}
+
+void LinguagensDLPlugin::AoFormatarArquivoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor)
+    {
+        Manager::Get()->GetLogManager()->LogWarning("LinguagensDL: nao ha editor ativo para formatar.");
+        return;
+    }
+
+    if (editor->GetModified() && !editor->Save())
+    {
+        Manager::Get()->GetLogManager()->LogWarning("LinguagensDL: nao foi possivel salvar o arquivo antes da formatacao.");
+        return;
+    }
+
+    const wxString caminhoArquivo = editor->GetFilename();
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("linguagens_dl");
+    wxString comando = cfg
+        ? cfg->Read("formatter.command", wxString("delegua format \"{file}\""))
+        : wxString("delegua format \"{file}\"");
+
+    comando.Trim(true);
+    comando.Trim(false);
+    if (comando.IsEmpty())
+    {
+        Manager::Get()->GetLogManager()->LogWarning(
+            "LinguagensDL: configure 'formatter.command' nas configuracoes do plugin.");
+        return;
+    }
+
+    if (comando.Find("{file}") != wxNOT_FOUND)
+        comando.Replace("{file}", wxString::Format("\"%s\"", caminhoArquivo));
+    else
+        comando.Append(wxString::Format(" \"%s\"", caminhoArquivo));
+
+    wxArrayString saida;
+    wxArrayString erros;
+    const long codigo = wxExecute(comando, saida, erros);
+
+    LogManager* logs = Manager::Get()->GetLogManager();
+    if (!logs)
+        return;
+
+    for (const wxString& linha : saida)
+        logs->Log(linha, indice_logger_saida_);
+    for (const wxString& linha : erros)
+        logs->Log(linha, indice_logger_saida_, Logger::warning);
+
+    if (codigo != 0)
+    {
+        logs->Log(
+            wxString::Format("LinguagensDL: formatador retornou codigo %ld.", codigo),
+            indice_logger_saida_,
+            Logger::error);
+        return;
+    }
+
+    editor->Reload();
+    logs->Log("LinguagensDL: formatacao concluida.", indice_logger_saida_);
 }
 
 void LinguagensDLPlugin::AoDepurarArquivoMenu(wxCommandEvent& evento)

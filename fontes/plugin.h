@@ -56,6 +56,7 @@ class LinguagensDLPlugin : public cbPlugin
         void AoAbrirEditor(CodeBlocksEvent& evento);
         void AoCaractereAdicionado(wxScintillaEvent& evento);
         void AoNovoProjetoMenu(wxCommandEvent& evento);
+        void AoFormatarArquivoMenu(wxCommandEvent& evento);
         void AoExecutarArquivoMenu(wxCommandEvent& evento);
         void AoDepurarArquivoMenu(wxCommandEvent& evento);
         void AoContinuarDepuracaoMenu(wxCommandEvent& evento);
