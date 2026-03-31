@@ -379,8 +379,8 @@ void LinguagensDLPlugin::AoDepurarArquivoMenu(wxCommandEvent& evento)
 
     wxString arquivo = editor->GetFilename();
     ConfigManager* cfg = Manager::Get()->GetConfigManager("linguagens_dl");
-    wxString adaptador = cfg ? cfg->Read("debugger.adapter", "delegua-dap") : "delegua-dap";
-    wxString args = cfg ? cfg->Read("debugger.program_args", wxEmptyString) : wxEmptyString;
+    wxString adaptador = cfg ? cfg->Read("debugger.adapter", wxString("delegua-dap")) : wxString("delegua-dap");
+    wxString args = cfg ? cfg->Read("debugger.program_args", wxString(wxEmptyString)) : wxString(wxEmptyString);
 
     if (!ponte_depurador_->IniciarSessao(adaptador, arquivo, args))
         return;
