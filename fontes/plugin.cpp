@@ -16,10 +16,17 @@
 
 #include <cbstyledtextctrl.h>
 #include <wx/arrstr.h>
+#include <wx/dirdlg.h>
+#include <wx/filefn.h>
+#include <wx/ffile.h>
+#include <wx/filename.h>
 #include <wx/menu.h>
+#include <wx/msgdlg.h>
+#include <wx/textdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
+#include <wx/choicdlg.h>
 
 #include <vector>
 
@@ -29,6 +36,7 @@ namespace
     PluginRegistrant<LinguagensDLPlugin> reg("LinguagensDL");
 
     const int idMenuExecutarArquivoAtual = wxNewId();
+    const int idMenuNovoProjeto = wxNewId();
     const int idMenuDepurarArquivoAtual = wxNewId();
     const int idMenuContinuarDepuracao = wxNewId();
     const int idMenuPassoSobre = wxNewId();
@@ -37,6 +45,7 @@ namespace
     const int idMenuPararDepuracao = wxNewId();
     const int idMenuAtualizarWatch = wxNewId();
     const wxString rotuloMenuPlugin = "Design &Liquido";
+    const wxString rotuloNovoProjeto = "Novo projeto Delégua...";
     const wxString rotuloExecutarArquivo = "Executar arquivo atual";
     const wxString rotuloDepurarArquivo = "Depurar arquivo atual (experimental)";
     const wxString rotuloContinuarDepuracao = "Depurador: continuar";
@@ -148,6 +157,7 @@ namespace
 }
 
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
+    EVT_MENU(idMenuNovoProjeto, LinguagensDLPlugin::AoNovoProjetoMenu)
     EVT_MENU(idMenuExecutarArquivoAtual, LinguagensDLPlugin::AoExecutarArquivoMenu)
     EVT_MENU(idMenuDepurarArquivoAtual, LinguagensDLPlugin::AoDepurarArquivoMenu)
     EVT_MENU(idMenuContinuarDepuracao, LinguagensDLPlugin::AoContinuarDepuracaoMenu)
@@ -363,7 +373,11 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
         return;
 
     if (!menuPlugin->FindItem(idMenuExecutarArquivoAtual))
+    {
+        menuPlugin->Append(idMenuNovoProjeto, rotuloNovoProjeto);
+        menuPlugin->AppendSeparator();
         menuPlugin->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
+    }
 
     if (!menuPlugin->FindItem(idMenuDepurarArquivoAtual))
         menuPlugin->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
@@ -431,6 +445,7 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
     if (!menu->FindItem(idMenuExecutarArquivoAtual))
     {
         menu->AppendSeparator();
+        menu->Append(idMenuNovoProjeto, rotuloNovoProjeto);
         menu->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
         menu->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
         menu->Append(idMenuContinuarDepuracao, rotuloContinuarDepuracao);
@@ -445,6 +460,111 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
 cbConfigurationPanel* LinguagensDLPlugin::GetConfigurationPanel(wxWindow* parent)
 {
     return new PainelConfiguracaoLinguagensDL(parent);
+}
+
+void LinguagensDLPlugin::AoNovoProjetoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+
+    wxWindow* pai = Manager::Get()->GetAppWindow();
+
+    wxDirDialog seletorDiretorio(
+        pai,
+        "Escolha a pasta onde o novo projeto sera criado",
+        wxGetCwd(),
+        wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+
+    if (seletorDiretorio.ShowModal() != wxID_OK)
+        return;
+
+    wxTextEntryDialog entradaNome(
+        pai,
+        "Nome do projeto:",
+        "Novo projeto Delégua",
+        "meu-projeto-delegua");
+
+    if (entradaNome.ShowModal() != wxID_OK)
+        return;
+
+    wxString nomeProjeto = entradaNome.GetValue();
+    nomeProjeto.Trim(true);
+    nomeProjeto.Trim(false);
+    if (nomeProjeto.IsEmpty())
+    {
+        wxMessageBox("Nome do projeto invalido.", "LinguagensDL", wxOK | wxICON_WARNING, pai);
+        return;
+    }
+
+    wxArrayString linguagens;
+    linguagens.Add("Delegua");
+    linguagens.Add("Pitugues");
+    linguagens.Add("Potigol");
+
+    wxSingleChoiceDialog escolhaLinguagem(
+        pai,
+        "Escolha a linguagem inicial do projeto:",
+        "Template do projeto",
+        linguagens);
+    escolhaLinguagem.SetSelection(0);
+
+    if (escolhaLinguagem.ShowModal() != wxID_OK)
+        return;
+
+    const wxString linguagem = escolhaLinguagem.GetStringSelection();
+    wxString extensao = "delegua";
+    wxString conteudo = "funcao inicio() {\n    escreva('Ola, Design Liquido!');\n}\n\ninicio();\n";
+
+    if (linguagem == "Pitugues")
+    {
+        extensao = "pitugues";
+        conteudo = "funcao inicio() {\n    escreva('Ola, Pitugues!');\n}\n\ninicio();\n";
+    }
+    else if (linguagem == "Potigol")
+    {
+        extensao = "potigol";
+        conteudo = "inicio\n  escreva(\"Ola, Potigol!\")\nfim\n";
+    }
+
+    wxFileName pastaProjeto(seletorDiretorio.GetPath(), nomeProjeto);
+    if (!wxFileName::Mkdir(pastaProjeto.GetFullPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL))
+    {
+        wxMessageBox("Nao foi possivel criar a pasta do projeto.", "LinguagensDL", wxOK | wxICON_ERROR, pai);
+        return;
+    }
+
+    wxFileName arquivoPrincipal(pastaProjeto.GetFullPath(), wxString::Format("principal.%s", extensao));
+    wxFFile saidaPrincipal(arquivoPrincipal.GetFullPath(), "w");
+    if (!saidaPrincipal.IsOpened())
+    {
+        wxMessageBox("Nao foi possivel criar o arquivo principal.", "LinguagensDL", wxOK | wxICON_ERROR, pai);
+        return;
+    }
+    saidaPrincipal.Write(conteudo);
+    saidaPrincipal.Close();
+
+    wxFileName arquivoReadme(pastaProjeto.GetFullPath(), "README.md");
+    wxFFile saidaReadme(arquivoReadme.GetFullPath(), "w");
+    if (saidaReadme.IsOpened())
+    {
+        saidaReadme.Write(wxString::Format(
+            "# %s\n\nProjeto criado pelo plugin LinguagensDL para Code::Blocks.\n\nLinguagem inicial: %s\n",
+            nomeProjeto,
+            linguagem));
+        saidaReadme.Close();
+    }
+
+    wxFileName arquivoGitignore(pastaProjeto.GetFullPath(), ".gitignore");
+    wxFFile saidaGitignore(arquivoGitignore.GetFullPath(), "w");
+    if (saidaGitignore.IsOpened())
+    {
+        saidaGitignore.Write("build/\n*.log\n");
+        saidaGitignore.Close();
+    }
+
+    Manager::Get()->GetEditorManager()->Open(arquivoPrincipal.GetFullPath());
+    Manager::Get()->GetLogManager()->Log(wxString::Format(
+        "LinguagensDL: projeto criado em %s",
+        pastaProjeto.GetFullPath()));
 }
 
 void LinguagensDLPlugin::AoAbrirEditor(CodeBlocksEvent& evento)
