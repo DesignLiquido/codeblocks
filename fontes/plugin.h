@@ -40,9 +40,14 @@ class LinguagensDLPlugin : public cbPlugin
         Executor*              executor_;
         TextCtrlLogger*        logger_saida_;
         int                    indice_logger_saida_;
+        TextCtrlLogger*        logger_watch_;
+        int                    indice_logger_watch_;
 
         void GarantirLoggerSaida();
         void LiberarLoggerSaida();
+        void GarantirLoggerWatch();
+        void LiberarLoggerWatch();
+        void AtualizarPainelWatch();
         void ConfigurarEditorParaCompletude(cbEditor* editor);
         void RemoverGanchosCompletude();
 
@@ -50,6 +55,7 @@ class LinguagensDLPlugin : public cbPlugin
         void AoCaractereAdicionado(wxScintillaEvent& evento);
         void AoExecutarArquivoMenu(wxCommandEvent& evento);
         void AoDepurarArquivoMenu(wxCommandEvent& evento);
+        void AoAtualizarWatchMenu(wxCommandEvent& evento);
 
         DECLARE_EVENT_TABLE()
 };

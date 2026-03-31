@@ -1,5 +1,6 @@
 #pragma once
 
+#include <wx/arrstr.h>
 #include <wx/process.h>
 #include <wx/string.h>
 
@@ -21,6 +22,7 @@ class PonteDepurador
         void PassoSobre();
         void PassoDentro();
         void PassoFora();
+        bool ColetarVariaveisAtuais(wxArrayString& variaveis);
 
         bool SessaoAtiva() const;
 
@@ -38,6 +40,14 @@ class PonteDepurador
         void RegistrarMensagem(const wxString& mensagem) const;
         void RegistrarErro(const wxString& mensagem) const;
         void NotificarTerminoProcesso(ProcessoDAP* processo, int status);
+        bool EnviarRequisicaoEAguardarResposta(const wxString& comando,
+                               const wxString& argumentosJSON,
+                               wxString& resposta,
+                               int timeoutMs = 1000);
+        bool AguardarRespostaParaSequencia(int sequencia, wxString& resposta, int timeoutMs);
+        bool LerMensagemDAP(wxString& payload, int timeoutMs);
+        bool ExtrairPrimeiroInteiro(const wxString& payload, const wxString& chave, int& valor) const;
+        void ExtrairVariaveis(const wxString& payload, wxArrayString& variaveis) const;
         void EnviarMensagemDAP(const wxString& payloadJSON);
         int ProximoIdRequisicao();
         wxString EscapeJSON(const wxString& texto) const;
@@ -47,4 +57,5 @@ class PonteDepurador
         long pid_processo_;
         int proximo_id_requisicao_;
         int indice_log_saida_;
+        wxString buffer_entrada_dap_;
 };

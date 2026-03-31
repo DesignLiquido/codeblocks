@@ -15,6 +15,7 @@
 #include <sdk_events.h>
 
 #include <cbstyledtextctrl.h>
+#include <wx/arrstr.h>
 #include <wx/menu.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -29,9 +30,11 @@ namespace
 
     const int idMenuExecutarArquivoAtual = wxNewId();
     const int idMenuDepurarArquivoAtual = wxNewId();
+    const int idMenuAtualizarWatch = wxNewId();
     const wxString rotuloMenuPlugin = "Design &Liquido";
     const wxString rotuloExecutarArquivo = "Executar arquivo atual";
     const wxString rotuloDepurarArquivo = "Depurar arquivo atual (experimental)";
+    const wxString rotuloAtualizarWatch = "Atualizar watch (experimental)";
 
     struct CampoRuntime
     {
@@ -137,6 +140,7 @@ namespace
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
     EVT_MENU(idMenuExecutarArquivoAtual, LinguagensDLPlugin::AoExecutarArquivoMenu)
     EVT_MENU(idMenuDepurarArquivoAtual, LinguagensDLPlugin::AoDepurarArquivoMenu)
+    EVT_MENU(idMenuAtualizarWatch, LinguagensDLPlugin::AoAtualizarWatchMenu)
 END_EVENT_TABLE()
 
 LinguagensDLPlugin::LinguagensDLPlugin()
@@ -146,6 +150,8 @@ LinguagensDLPlugin::LinguagensDLPlugin()
     , executor_(nullptr)
     , logger_saida_(nullptr)
     , indice_logger_saida_(LogManager::invalid_log)
+    , logger_watch_(nullptr)
+    , indice_logger_watch_(LogManager::invalid_log)
 {
     // Recursos XRC ainda são opcionais enquanto o plugin não empacota um ZIP próprio.
     wxString arquivoRecursos = ConfigManager::LocateDataFile("LinguagensDL.zip", sdDataGlobal | sdDataUser);
@@ -163,6 +169,7 @@ LinguagensDLPlugin::~LinguagensDLPlugin()
 void LinguagensDLPlugin::OnAttach()
 {
     GarantirLoggerSaida();
+    GarantirLoggerWatch();
 
     gerenciador_linguagens_ = new GerenciadorLinguagens();
     provedor_completude_    = new ProvedorCompletude(gerenciador_linguagens_);
@@ -187,9 +194,14 @@ void LinguagensDLPlugin::OnAttach()
 void LinguagensDLPlugin::OnRelease(bool appShutDown)
 {
     if (!appShutDown)
+    {
+        LiberarLoggerWatch();
         LiberarLoggerSaida();
+    }
     else
     {
+        logger_watch_ = nullptr;
+        indice_logger_watch_ = LogManager::invalid_log;
         logger_saida_ = nullptr;
         indice_logger_saida_ = LogManager::invalid_log;
     }
@@ -232,6 +244,58 @@ void LinguagensDLPlugin::LiberarLoggerSaida()
     indice_logger_saida_ = LogManager::invalid_log;
 }
 
+void LinguagensDLPlugin::GarantirLoggerWatch()
+{
+    if (logger_watch_)
+        return;
+
+    logger_watch_ = new TextCtrlLogger(true);
+    CodeBlocksLogEvent eventoAdicionar(cbEVT_ADD_LOG_WINDOW, logger_watch_, "Linguagens DL - Watch");
+    Manager::Get()->ProcessEvent(eventoAdicionar);
+    indice_logger_watch_ = eventoAdicionar.logIndex;
+}
+
+void LinguagensDLPlugin::LiberarLoggerWatch()
+{
+    if (!logger_watch_)
+        return;
+
+    CodeBlocksLogEvent eventoRemover(cbEVT_REMOVE_LOG_WINDOW, logger_watch_);
+    Manager::Get()->ProcessEvent(eventoRemover);
+
+    logger_watch_ = nullptr;
+    indice_logger_watch_ = LogManager::invalid_log;
+}
+
+void LinguagensDLPlugin::AtualizarPainelWatch()
+{
+    if (!ponte_depurador_ || !ponte_depurador_->SessaoAtiva())
+    {
+        Manager::Get()->GetLogManager()->LogWarning("LinguagensDL: inicie uma sessao de depuracao para atualizar o watch.");
+        return;
+    }
+
+    wxArrayString variaveis;
+    const bool ok = ponte_depurador_->ColetarVariaveisAtuais(variaveis);
+
+    LogManager* logs = Manager::Get()->GetLogManager();
+    if (!logs)
+        return;
+
+    if (indice_logger_watch_ == LogManager::invalid_log)
+        GarantirLoggerWatch();
+
+    if (!ok)
+    {
+        logs->Log("LinguagensDL: nenhuma variavel disponivel no frame atual.", indice_logger_watch_, Logger::warning);
+        return;
+    }
+
+    logs->Log("LinguagensDL: variaveis atuais", indice_logger_watch_);
+    for (const wxString& linha : variaveis)
+        logs->Log("  " + linha, indice_logger_watch_);
+}
+
 void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
 {
     if (!menuBar)
@@ -258,6 +322,9 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
 
     if (!menuPlugin->FindItem(idMenuDepurarArquivoAtual))
         menuPlugin->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
+
+    if (!menuPlugin->FindItem(idMenuAtualizarWatch))
+        menuPlugin->Append(idMenuAtualizarWatch, rotuloAtualizarWatch);
 }
 
 void LinguagensDLPlugin::ConfigurarEditorParaCompletude(cbEditor* editor)
@@ -306,6 +373,7 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
         menu->AppendSeparator();
         menu->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
         menu->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
+        menu->Append(idMenuAtualizarWatch, rotuloAtualizarWatch);
     }
 }
 
@@ -387,4 +455,11 @@ void LinguagensDLPlugin::AoDepurarArquivoMenu(wxCommandEvent& evento)
 
     ponte_depurador_->DefinirBreakpoint(arquivo, editor->GetControl()->GetCurrentLine() + 1);
     ponte_depurador_->ContinuarExecucao();
+    AtualizarPainelWatch();
+}
+
+void LinguagensDLPlugin::AoAtualizarWatchMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    AtualizarPainelWatch();
 }

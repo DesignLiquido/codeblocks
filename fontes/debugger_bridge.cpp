@@ -7,7 +7,9 @@
 
 #include <wx/arrstr.h>
 #include <wx/filename.h>
+#include <wx/regex.h>
 #include <wx/sstream.h>
+#include <wx/utils.h>
 
 PonteDepurador::ProcessoDAP::ProcessoDAP(PonteDepurador* owner)
     : wxProcess(nullptr)
@@ -27,6 +29,7 @@ PonteDepurador::PonteDepurador(int indiceLogSaida)
     , pid_processo_(0)
     , proximo_id_requisicao_(1)
     , indice_log_saida_(indiceLogSaida)
+    , buffer_entrada_dap_()
 {
 }
 
@@ -171,6 +174,55 @@ bool PonteDepurador::SessaoAtiva() const
     return processo_dap_ != nullptr && pid_processo_ != 0;
 }
 
+bool PonteDepurador::ColetarVariaveisAtuais(wxArrayString& variaveis)
+{
+    variaveis.Clear();
+
+    if (!SessaoAtiva())
+        return false;
+
+    wxString respostaThreads;
+    if (!EnviarRequisicaoEAguardarResposta("threads", "{}", respostaThreads))
+        return false;
+
+    int threadId = 0;
+    if (!ExtrairPrimeiroInteiro(respostaThreads, "threadId", threadId) || threadId <= 0)
+        return false;
+
+    wxString respostaStack;
+    if (!EnviarRequisicaoEAguardarResposta(
+            "stackTrace",
+            wxString::Format("{\"threadId\":%d,\"startFrame\":0,\"levels\":1}", threadId),
+            respostaStack))
+        return false;
+
+    int frameId = 0;
+    if (!ExtrairPrimeiroInteiro(respostaStack, "id", frameId))
+        return false;
+
+    wxString respostaScopes;
+    if (!EnviarRequisicaoEAguardarResposta(
+            "scopes",
+            wxString::Format("{\"frameId\":%d}", frameId),
+            respostaScopes))
+        return false;
+
+    int variablesReference = 0;
+    if (!ExtrairPrimeiroInteiro(respostaScopes, "variablesReference", variablesReference)
+        || variablesReference <= 0)
+        return false;
+
+    wxString respostaVariaveis;
+    if (!EnviarRequisicaoEAguardarResposta(
+            "variables",
+            wxString::Format("{\"variablesReference\":%d}", variablesReference),
+            respostaVariaveis))
+        return false;
+
+    ExtrairVariaveis(respostaVariaveis, variaveis);
+    return !variaveis.IsEmpty();
+}
+
 void PonteDepurador::RegistrarMensagem(const wxString& mensagem) const
 {
     LogManager* logs = Manager::Get()->GetLogManager();
@@ -203,6 +255,153 @@ void PonteDepurador::NotificarTerminoProcesso(ProcessoDAP* processo, int status)
     {
         processo_dap_ = nullptr;
         pid_processo_ = 0;
+        buffer_entrada_dap_.clear();
+    }
+}
+
+bool PonteDepurador::EnviarRequisicaoEAguardarResposta(const wxString& comando,
+                                                       const wxString& argumentosJSON,
+                                                       wxString& resposta,
+                                                       int timeoutMs)
+{
+    if (!SessaoAtiva())
+        return false;
+
+    const int sequencia = ProximoIdRequisicao();
+    EnviarMensagemDAP(wxString::Format(
+        "{\"seq\":%d,\"type\":\"request\",\"command\":\"%s\",\"arguments\":%s}",
+        sequencia,
+        comando,
+        argumentosJSON));
+
+    return AguardarRespostaParaSequencia(sequencia, resposta, timeoutMs);
+}
+
+bool PonteDepurador::AguardarRespostaParaSequencia(int sequencia, wxString& resposta, int timeoutMs)
+{
+    resposta.clear();
+    const long inicio = wxGetUTCTimeMillis().GetValue();
+
+    while ((wxGetUTCTimeMillis().GetValue() - inicio) < timeoutMs)
+    {
+        wxString payload;
+        if (!LerMensagemDAP(payload, 100))
+            continue;
+
+        wxRegEx padraoSequencia(wxString::Format("\"request_seq\"[[:space:]]*:[[:space:]]*%d", sequencia));
+        if (!padraoSequencia.IsValid() || !padraoSequencia.Matches(payload))
+            continue;
+
+        if (payload.Find("\"type\":\"response\"") == wxNOT_FOUND)
+            continue;
+
+        resposta = payload;
+        return true;
+    }
+
+    return false;
+}
+
+bool PonteDepurador::LerMensagemDAP(wxString& payload, int timeoutMs)
+{
+    payload.clear();
+
+    if (!SessaoAtiva() || !processo_dap_)
+        return false;
+
+    wxInputStream* saidaAdaptador = processo_dap_->GetInputStream();
+    if (!saidaAdaptador)
+        return false;
+
+    const long inicio = wxGetUTCTimeMillis().GetValue();
+
+    while ((wxGetUTCTimeMillis().GetValue() - inicio) < timeoutMs)
+    {
+        while (saidaAdaptador->CanRead())
+        {
+            char c = 0;
+            saidaAdaptador->Read(&c, 1);
+            if (saidaAdaptador->LastRead() == 1)
+                buffer_entrada_dap_.Append(c);
+            else
+                break;
+        }
+
+        const int idxSeparador = buffer_entrada_dap_.Find("\r\n\r\n");
+        if (idxSeparador != wxNOT_FOUND)
+        {
+            const wxString cabecalho = buffer_entrada_dap_.substr(0, idxSeparador);
+            wxRegEx regexTamanho("Content-Length:[[:space:]]*([0-9]+)", wxRE_ICASE);
+            if (!regexTamanho.IsValid() || !regexTamanho.Matches(cabecalho))
+            {
+                buffer_entrada_dap_.clear();
+                return false;
+            }
+
+            long tamanhoPayload = 0;
+            regexTamanho.GetMatch(cabecalho, 1).ToLong(&tamanhoPayload);
+            const int inicioPayload = idxSeparador + 4;
+
+            if ((long)buffer_entrada_dap_.length() >= (inicioPayload + tamanhoPayload))
+            {
+                payload = buffer_entrada_dap_.substr(inicioPayload, tamanhoPayload);
+                buffer_entrada_dap_ = buffer_entrada_dap_.substr(inicioPayload + tamanhoPayload);
+                return true;
+            }
+        }
+
+        wxMilliSleep(10);
+    }
+
+    return false;
+}
+
+bool PonteDepurador::ExtrairPrimeiroInteiro(const wxString& payload, const wxString& chave, int& valor) const
+{
+    valor = 0;
+    wxRegEx padrao(wxString::Format("\"%s\"[[:space:]]*:[[:space:]]*([0-9]+)", chave));
+    if (!padrao.IsValid() || !padrao.Matches(payload))
+        return false;
+
+    long extraido = 0;
+    if (!padrao.GetMatch(payload, 1).ToLong(&extraido))
+        return false;
+
+    valor = (int)extraido;
+    return true;
+}
+
+void PonteDepurador::ExtrairVariaveis(const wxString& payload, wxArrayString& variaveis) const
+{
+    variaveis.Clear();
+
+    size_t cursor = 0;
+    while (cursor < payload.length())
+    {
+        const int idxNomeToken = payload.find("\"name\":\"", cursor);
+        if (idxNomeToken == wxNOT_FOUND)
+            break;
+
+        const size_t inicioNome = (size_t)idxNomeToken + 8;
+        const int idxFimNome = payload.find('"', inicioNome);
+        if (idxFimNome == wxNOT_FOUND)
+            break;
+
+        const wxString nome = payload.substr(inicioNome, (size_t)idxFimNome - inicioNome);
+
+        const int idxValorToken = payload.find("\"value\":\"", (size_t)idxFimNome);
+        if (idxValorToken == wxNOT_FOUND)
+            break;
+
+        const size_t inicioValor = (size_t)idxValorToken + 9;
+        const int idxFimValor = payload.find('"', inicioValor);
+        if (idxFimValor == wxNOT_FOUND)
+            break;
+
+        const wxString valor = payload.substr(inicioValor, (size_t)idxFimValor - inicioValor);
+        variaveis.Add(wxString::Format("%s = %s", nome, valor));
+
+        cursor = (size_t)idxFimValor + 1;
     }
 }
 
