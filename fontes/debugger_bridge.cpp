@@ -222,7 +222,8 @@ void PonteDepurador::EnviarMensagemDAP(const wxString& payloadJSON)
     const size_t tamanhoPayload = strlen(utf8.data());
     wxString cabecalho = wxString::Format("Content-Length: %zu\r\n\r\n", tamanhoPayload);
 
-    entradaAdaptador->Write(cabecalho.ToUTF8(), cabecalho.utf8_length());
+    wxCharBuffer cabecalhoUtf8 = cabecalho.ToUTF8();
+    entradaAdaptador->Write(cabecalhoUtf8, strlen(cabecalhoUtf8));
     entradaAdaptador->Write(utf8.data(), tamanhoPayload);
     entradaAdaptador->Sync();
 }
