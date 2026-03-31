@@ -55,6 +55,11 @@ class LinguagensDLPlugin : public cbPlugin
         void AoCaractereAdicionado(wxScintillaEvent& evento);
         void AoExecutarArquivoMenu(wxCommandEvent& evento);
         void AoDepurarArquivoMenu(wxCommandEvent& evento);
+        void AoContinuarDepuracaoMenu(wxCommandEvent& evento);
+        void AoPassoSobreMenu(wxCommandEvent& evento);
+        void AoPassoDentroMenu(wxCommandEvent& evento);
+        void AoPassoForaMenu(wxCommandEvent& evento);
+        void AoPararDepuracaoMenu(wxCommandEvent& evento);
         void AoAtualizarWatchMenu(wxCommandEvent& evento);
 
         DECLARE_EVENT_TABLE()

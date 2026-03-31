@@ -30,10 +30,20 @@ namespace
 
     const int idMenuExecutarArquivoAtual = wxNewId();
     const int idMenuDepurarArquivoAtual = wxNewId();
+    const int idMenuContinuarDepuracao = wxNewId();
+    const int idMenuPassoSobre = wxNewId();
+    const int idMenuPassoDentro = wxNewId();
+    const int idMenuPassoFora = wxNewId();
+    const int idMenuPararDepuracao = wxNewId();
     const int idMenuAtualizarWatch = wxNewId();
     const wxString rotuloMenuPlugin = "Design &Liquido";
     const wxString rotuloExecutarArquivo = "Executar arquivo atual";
     const wxString rotuloDepurarArquivo = "Depurar arquivo atual (experimental)";
+    const wxString rotuloContinuarDepuracao = "Depurador: continuar";
+    const wxString rotuloPassoSobre = "Depurador: passo sobre";
+    const wxString rotuloPassoDentro = "Depurador: passo dentro";
+    const wxString rotuloPassoFora = "Depurador: passo fora";
+    const wxString rotuloPararDepuracao = "Depurador: parar";
     const wxString rotuloAtualizarWatch = "Atualizar watch (experimental)";
 
     struct CampoRuntime
@@ -140,6 +150,11 @@ namespace
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
     EVT_MENU(idMenuExecutarArquivoAtual, LinguagensDLPlugin::AoExecutarArquivoMenu)
     EVT_MENU(idMenuDepurarArquivoAtual, LinguagensDLPlugin::AoDepurarArquivoMenu)
+    EVT_MENU(idMenuContinuarDepuracao, LinguagensDLPlugin::AoContinuarDepuracaoMenu)
+    EVT_MENU(idMenuPassoSobre, LinguagensDLPlugin::AoPassoSobreMenu)
+    EVT_MENU(idMenuPassoDentro, LinguagensDLPlugin::AoPassoDentroMenu)
+    EVT_MENU(idMenuPassoFora, LinguagensDLPlugin::AoPassoForaMenu)
+    EVT_MENU(idMenuPararDepuracao, LinguagensDLPlugin::AoPararDepuracaoMenu)
     EVT_MENU(idMenuAtualizarWatch, LinguagensDLPlugin::AoAtualizarWatchMenu)
 END_EVENT_TABLE()
 
@@ -323,6 +338,21 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
     if (!menuPlugin->FindItem(idMenuDepurarArquivoAtual))
         menuPlugin->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
 
+    if (!menuPlugin->FindItem(idMenuContinuarDepuracao))
+        menuPlugin->Append(idMenuContinuarDepuracao, rotuloContinuarDepuracao);
+
+    if (!menuPlugin->FindItem(idMenuPassoSobre))
+        menuPlugin->Append(idMenuPassoSobre, rotuloPassoSobre);
+
+    if (!menuPlugin->FindItem(idMenuPassoDentro))
+        menuPlugin->Append(idMenuPassoDentro, rotuloPassoDentro);
+
+    if (!menuPlugin->FindItem(idMenuPassoFora))
+        menuPlugin->Append(idMenuPassoFora, rotuloPassoFora);
+
+    if (!menuPlugin->FindItem(idMenuPararDepuracao))
+        menuPlugin->Append(idMenuPararDepuracao, rotuloPararDepuracao);
+
     if (!menuPlugin->FindItem(idMenuAtualizarWatch))
         menuPlugin->Append(idMenuAtualizarWatch, rotuloAtualizarWatch);
 }
@@ -373,6 +403,11 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
         menu->AppendSeparator();
         menu->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
         menu->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
+        menu->Append(idMenuContinuarDepuracao, rotuloContinuarDepuracao);
+        menu->Append(idMenuPassoSobre, rotuloPassoSobre);
+        menu->Append(idMenuPassoDentro, rotuloPassoDentro);
+        menu->Append(idMenuPassoFora, rotuloPassoFora);
+        menu->Append(idMenuPararDepuracao, rotuloPararDepuracao);
         menu->Append(idMenuAtualizarWatch, rotuloAtualizarWatch);
     }
 }
@@ -462,4 +497,52 @@ void LinguagensDLPlugin::AoAtualizarWatchMenu(wxCommandEvent& evento)
 {
     (void)evento;
     AtualizarPainelWatch();
+}
+
+void LinguagensDLPlugin::AoContinuarDepuracaoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    if (!ponte_depurador_ || !ponte_depurador_->SessaoAtiva())
+        return;
+
+    ponte_depurador_->ContinuarExecucao();
+}
+
+void LinguagensDLPlugin::AoPassoSobreMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    if (!ponte_depurador_ || !ponte_depurador_->SessaoAtiva())
+        return;
+
+    ponte_depurador_->PassoSobre();
+    AtualizarPainelWatch();
+}
+
+void LinguagensDLPlugin::AoPassoDentroMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    if (!ponte_depurador_ || !ponte_depurador_->SessaoAtiva())
+        return;
+
+    ponte_depurador_->PassoDentro();
+    AtualizarPainelWatch();
+}
+
+void LinguagensDLPlugin::AoPassoForaMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    if (!ponte_depurador_ || !ponte_depurador_->SessaoAtiva())
+        return;
+
+    ponte_depurador_->PassoFora();
+    AtualizarPainelWatch();
+}
+
+void LinguagensDLPlugin::AoPararDepuracaoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+    if (!ponte_depurador_ || !ponte_depurador_->SessaoAtiva())
+        return;
+
+    ponte_depurador_->EncerrarSessao();
 }
