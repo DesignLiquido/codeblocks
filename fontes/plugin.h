@@ -4,6 +4,7 @@
 
 class GerenciadorLinguagens;
 class ProvedorCompletude;
+class PonteDepurador;
 class Executor;
 class TextCtrlLogger;
 class wxMenu;
@@ -35,6 +36,7 @@ class LinguagensDLPlugin : public cbPlugin
     private:
         GerenciadorLinguagens* gerenciador_linguagens_;
         ProvedorCompletude*    provedor_completude_;
+        PonteDepurador*        ponte_depurador_;
         Executor*              executor_;
         TextCtrlLogger*        logger_saida_;
         int                    indice_logger_saida_;
@@ -47,6 +49,7 @@ class LinguagensDLPlugin : public cbPlugin
         void AoAbrirEditor(CodeBlocksEvent& evento);
         void AoCaractereAdicionado(wxScintillaEvent& evento);
         void AoExecutarArquivoMenu(wxCommandEvent& evento);
+        void AoDepurarArquivoMenu(wxCommandEvent& evento);
 
         DECLARE_EVENT_TABLE()
 };

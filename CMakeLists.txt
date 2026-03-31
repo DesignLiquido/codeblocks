@@ -24,6 +24,7 @@ include(${wxWidgets_USE_FILE})
 
 set(PLUGIN_SOURCES
     fontes/completion.cpp
+    fontes/debugger_bridge.cpp
     fontes/plugin.cpp
     fontes/manager.cpp
     fontes/runner.cpp
@@ -31,6 +32,7 @@ set(PLUGIN_SOURCES
 
 set(PLUGIN_HEADERS
     fontes/completion.h
+    fontes/debugger_bridge.h
     fontes/plugin.h
     fontes/manager.h
     fontes/runner.h

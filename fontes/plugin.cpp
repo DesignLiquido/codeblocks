@@ -1,5 +1,6 @@
 #include "plugin.h"
 #include "completion.h"
+#include "debugger_bridge.h"
 #include "manager.h"
 #include "runner.h"
 
@@ -27,8 +28,10 @@ namespace
     PluginRegistrant<LinguagensDLPlugin> reg("LinguagensDL");
 
     const int idMenuExecutarArquivoAtual = wxNewId();
+    const int idMenuDepurarArquivoAtual = wxNewId();
     const wxString rotuloMenuPlugin = "Design &Liquido";
     const wxString rotuloExecutarArquivo = "Executar arquivo atual";
+    const wxString rotuloDepurarArquivo = "Depurar arquivo atual (experimental)";
 
     struct CampoRuntime
     {
@@ -133,11 +136,13 @@ namespace
 
 BEGIN_EVENT_TABLE(LinguagensDLPlugin, cbPlugin)
     EVT_MENU(idMenuExecutarArquivoAtual, LinguagensDLPlugin::AoExecutarArquivoMenu)
+    EVT_MENU(idMenuDepurarArquivoAtual, LinguagensDLPlugin::AoDepurarArquivoMenu)
 END_EVENT_TABLE()
 
 LinguagensDLPlugin::LinguagensDLPlugin()
     : gerenciador_linguagens_(nullptr)
     , provedor_completude_(nullptr)
+    , ponte_depurador_(nullptr)
     , executor_(nullptr)
     , logger_saida_(nullptr)
     , indice_logger_saida_(LogManager::invalid_log)
@@ -161,6 +166,7 @@ void LinguagensDLPlugin::OnAttach()
 
     gerenciador_linguagens_ = new GerenciadorLinguagens();
     provedor_completude_    = new ProvedorCompletude(gerenciador_linguagens_);
+    ponte_depurador_        = new PonteDepurador(indice_logger_saida_);
     executor_               = new Executor(indice_logger_saida_);
 
     // Registra extenções de arquivo para todas as linguagens suportadas
@@ -190,6 +196,9 @@ void LinguagensDLPlugin::OnRelease(bool appShutDown)
 
     delete executor_;
     executor_ = nullptr;
+
+    delete ponte_depurador_;
+    ponte_depurador_ = nullptr;
 
     RemoverGanchosCompletude();
 
@@ -246,6 +255,9 @@ void LinguagensDLPlugin::BuildMenu(wxMenuBar* menuBar)
 
     if (!menuPlugin->FindItem(idMenuExecutarArquivoAtual))
         menuPlugin->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
+
+    if (!menuPlugin->FindItem(idMenuDepurarArquivoAtual))
+        menuPlugin->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
 }
 
 void LinguagensDLPlugin::ConfigurarEditorParaCompletude(cbEditor* editor)
@@ -293,6 +305,7 @@ void LinguagensDLPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, co
     {
         menu->AppendSeparator();
         menu->Append(idMenuExecutarArquivoAtual, rotuloExecutarArquivo);
+        menu->Append(idMenuDepurarArquivoAtual, rotuloDepurarArquivo);
     }
 }
 
@@ -348,4 +361,30 @@ void LinguagensDLPlugin::AoExecutarArquivoMenu(wxCommandEvent& evento)
     }
 
     executor_->ExecutarArquivo(editor->GetFilename());
+}
+
+void LinguagensDLPlugin::AoDepurarArquivoMenu(wxCommandEvent& evento)
+{
+    (void)evento;
+
+    if (!ponte_depurador_)
+        return;
+
+    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!editor)
+    {
+        Manager::Get()->GetLogManager()->LogWarning("LinguagensDL: nao ha editor ativo para depurar.");
+        return;
+    }
+
+    wxString arquivo = editor->GetFilename();
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("linguagens_dl");
+    wxString adaptador = cfg ? cfg->Read("debugger.adapter", "delegua-dap") : "delegua-dap";
+    wxString args = cfg ? cfg->Read("debugger.program_args", wxEmptyString) : wxEmptyString;
+
+    if (!ponte_depurador_->IniciarSessao(adaptador, arquivo, args))
+        return;
+
+    ponte_depurador_->DefinirBreakpoint(arquivo, editor->GetControl()->GetCurrentLine() + 1);
+    ponte_depurador_->ContinuarExecucao();
 }

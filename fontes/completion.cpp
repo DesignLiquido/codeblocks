@@ -12,6 +12,42 @@
 
 namespace
 {
+    struct AssinaturaFuncao
+    {
+        const wxChar* nome;
+        const wxChar* assinatura;
+    };
+
+    static const AssinaturaFuncao s_assinaturasDelegua[] =
+    {
+        { wxT("escreva"),      wxT("escreva(...valores)") },
+        { wxT("escreval"),     wxT("escreval(...valores)") },
+        { wxT("leia"),         wxT("leia(mensagem)") },
+        { wxT("tipoDe"),       wxT("tipoDe(valor)") },
+        { wxT("tamanho"),      wxT("tamanho(valor)") },
+        { wxT("inteiro"),      wxT("inteiro(texto_ou_numero)") },
+        { wxT("real"),         wxT("real(texto_ou_numero)") },
+        { wxT("texto"),        wxT("texto(valor)") },
+        { wxT("logico"),       wxT("logico(valor)") },
+        { wxT("mapear"),       wxT("mapear(vetor,funcao)") },
+        { wxT("filtrar"),      wxT("filtrar(vetor,funcao)") },
+        { wxT("reduzir"),      wxT("reduzir(vetor,funcao,inicial)") },
+        { wxT("ordenar"),      wxT("ordenar(vetor,comparador)") },
+        { wxT("aleatorio"),    wxT("aleatorio(minimo,maximo)") },
+        { wxT("agora"),        wxT("agora()") },
+        { wxT("esperar"),      wxT("esperar(milisegundos)") }
+    };
+
+    wxString ObterAssinaturaPorNome(const wxString& nome)
+    {
+        for (const AssinaturaFuncao& item : s_assinaturasDelegua)
+        {
+            if (nome.CmpNoCase(item.nome) == 0)
+                return item.assinatura;
+        }
+        return wxEmptyString;
+    }
+
     bool ComecaComPrefixo(const wxString& valor, const wxString& prefixo)
     {
         return valor.Length() >= prefixo.Length() && valor.Left(prefixo.Length()).CmpNoCase(prefixo) == 0;
@@ -58,16 +94,21 @@ ProvedorCompletude::ProvedorCompletude(const GerenciadorLinguagens* gerenciadorL
 
 void ProvedorCompletude::TalvezExibirCompletude(cbEditor* editor, int caractereDigitado) const
 {
-    if (!editor || !gerenciador_linguagens_ || !EhCaractereDisparador(caractereDigitado))
+    if (!editor || !gerenciador_linguagens_)
         return;
 
     cbStyledTextCtrl* controleTexto = editor->GetControl();
-    if (!controleTexto || controleTexto->AutoCompActive())
+    if (!controleTexto)
         return;
 
     wxFileName arquivo(editor->GetFilename());
     const InformacoesLinguagem* linguagem = gerenciador_linguagens_->ObterLinguagemPorExtensao(arquivo.GetExt().Lower());
     if (!linguagem)
+        return;
+
+    TalvezExibirAssinaturaFuncao(linguagem, controleTexto, caractereDigitado);
+
+    if (!EhCaractereDisparador(caractereDigitado) || controleTexto->AutoCompActive())
         return;
 
     wxString prefixo = ExtrairPrefixo(controleTexto);
@@ -100,6 +141,7 @@ wxString ProvedorCompletude::ConstruirListaSugestoes(const InformacoesLinguagem*
     wxArrayString sugestoes;
 
     AdicionarPalavrasChave(linguagem, prefixo, sugestoes);
+    AdicionarAssinaturasBibliotecaDelegua(linguagem, prefixo, sugestoes);
     AdicionarSimbolosArquivo(controleTexto, prefixo, sugestoes);
 
     if (sugestoes.IsEmpty())
@@ -177,4 +219,66 @@ void ProvedorCompletude::AdicionarSimbolosArquivo(cbStyledTextCtrl* controleText
 bool ProvedorCompletude::EhCaractereDisparador(int caractereDigitado) const
 {
     return wxIsalnum(static_cast<wxChar>(caractereDigitado)) || caractereDigitado == '_';
+}
+
+bool ProvedorCompletude::LinguagemSuportaAssinaturasDelegua(const InformacoesLinguagem* linguagem) const
+{
+    if (!linguagem)
+        return false;
+
+    return linguagem->nome.CmpNoCase("Delégua") == 0
+        || linguagem->nome.CmpNoCase("Pituguês") == 0
+        || linguagem->nome.CmpNoCase("BIRL") == 0
+        || linguagem->nome.CmpNoCase("Égua") == 0;
+}
+
+void ProvedorCompletude::TalvezExibirAssinaturaFuncao(const InformacoesLinguagem* linguagem,
+                                                      cbStyledTextCtrl* controleTexto,
+                                                      int caractereDigitado) const
+{
+    if (caractereDigitado != '(' || !LinguagemSuportaAssinaturasDelegua(linguagem))
+        return;
+
+    wxString token = ObterTokenAnteriorAoCursor(controleTexto);
+    if (token.IsEmpty())
+        return;
+
+    wxString assinatura = ObterAssinaturaPorNome(token);
+    if (assinatura.IsEmpty())
+        return;
+
+    const int posicaoAtual = controleTexto->GetCurrentPos();
+    controleTexto->CallTipShow(posicaoAtual, assinatura);
+}
+
+wxString ProvedorCompletude::ObterTokenAnteriorAoCursor(cbStyledTextCtrl* controleTexto) const
+{
+    const int posicaoAtual = controleTexto->GetCurrentPos();
+    const int posicaoAbertura = posicaoAtual - 1;
+    if (posicaoAbertura <= 0)
+        return wxEmptyString;
+
+    const int fimNome = posicaoAbertura;
+    const int inicioNome = controleTexto->WordStartPosition(fimNome, true);
+    if (inicioNome == wxSCI_INVALID_POSITION || inicioNome >= fimNome)
+        return wxEmptyString;
+
+    return controleTexto->GetTextRange(inicioNome, fimNome);
+}
+
+void ProvedorCompletude::AdicionarAssinaturasBibliotecaDelegua(const InformacoesLinguagem* linguagem,
+                                                              const wxString& prefixo,
+                                                              wxArrayString& sugestoes) const
+{
+    if (!LinguagemSuportaAssinaturasDelegua(linguagem))
+        return;
+
+    for (const AssinaturaFuncao& item : s_assinaturasDelegua)
+    {
+        wxString nome(item.nome);
+        wxString assinatura(item.assinatura);
+
+        if (ComecaComPrefixo(nome, prefixo) || ComecaComPrefixo(assinatura, prefixo))
+            AdicionarSugestaoUnica(assinatura, sugestoes);
+    }
 }

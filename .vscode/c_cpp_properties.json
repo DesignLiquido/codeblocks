@@ -3,11 +3,24 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/fontes",
+                "${workspaceFolder}/fontes/**",
+                "${workspaceFolder}/sdk/**",
+                "${workspaceFolder}/cbsdk-include/**",
                 "C:/wxWidgets-3.3.2/include",
                 "C:/wxWidgets-3.3.2/lib/gcc_dll/mswu",
-                 "${workspaceFolder}/cbsdk-include"
+                "C:/CBMinGW/include/**"
             ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/fontes",
+                    "${workspaceFolder}/sdk",
+                    "${workspaceFolder}/cbsdk-include",
+                    "C:/wxWidgets-3.3.2/include",
+                    "C:/wxWidgets-3.3.2/lib/gcc_dll/mswu",
+                    "C:/CBMinGW/include"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
             "defines": [
                 "__WXMSW__",
                 "WXUSINGDLL",
