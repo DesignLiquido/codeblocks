@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wx/string.h>
+#include <logger.h>
 
 /**
  * Responsável por executar arquivos com o runtime adequado para cada linguagem.

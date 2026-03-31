@@ -179,7 +179,7 @@ wxString Executor::ObterChaveRuntimePorExtensao(const wxString& extensao) const
 wxString Executor::ObterRuntimeConfigurado(const wxString& chave) const
 {
     ConfigManager* configuracoes = Manager::Get()->GetConfigManager("linguagens_dl");
-    return configuracoes ? configuracoes->Read(chave, wxEmptyString) : wxEmptyString;
+    return configuracoes ? configuracoes->Read(chave, wxString(wxEmptyString)) : wxString(wxEmptyString);
 }
 
 wxString Executor::ObterArgumentosRuntime(const wxString& chaveRuntime) const
@@ -230,7 +230,7 @@ wxString Executor::ResolverExecutavel(const wxString& runtime) const
 
     wxFileName arquivo(candidato);
     if (arquivo.IsAbsolute() || candidato.Find('\\') != wxNOT_FOUND || candidato.Find('/') != wxNOT_FOUND)
-        return arquivo.FileExists() ? arquivo.GetFullPath() : wxEmptyString;
+        return arquivo.FileExists() ? arquivo.GetFullPath() : wxString(wxEmptyString);
 
     wxArrayString extensoesExecutavel;
 #ifdef __WXMSW__
