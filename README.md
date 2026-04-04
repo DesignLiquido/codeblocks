@@ -36,20 +36,41 @@ Plugin para o [Code::Blocks](https://www.codeblocks.org/) que adiciona suporte a
 - [x] Realce de sintaxe para todas as linguagens
 - [x] Integração com runtimes (executar arquivos diretamente)
 - [x] Completude de código (palavras-chave e funções internas de Delégua)
-- [ ] Integração com depurador
-- [ ] Assistente de projetos (wizards)
-- [ ] Dobragem de código (*code folding*)
-- [ ] Formatação de código para Delégua
+- [x] Integração com depurador
+- [x] Assistente de projetos (wizards)
+- [x] Dobragem de código (*code folding*)
+- [x] Formatação de código para Delégua
 - [ ] Trechos de código (*snippets*)
+
+> Estado de versão: os itens marcados com [x] compõem a primeira versão (v1). Snippets ficam para uma próxima iteração.
 
 ## Requisitos de build
 
-- Code::Blocks 20.03 ou superior, com SDK instalado
-- wxWidgets 3.x
+- Code::Blocks 25.03 e wxWidgets 3.2 via **MSYS2 UCRT64**
+- Headers do SDK do Code::Blocks já vendorizados no repositório
+- wxWidgets 3.2.x
 - C++17
 - GCC / MinGW (Windows) ou GCC / Clang (Linux e macOS)
 
 Veja [docs/CONSTRUCAO.md](docs/CONSTRUCAO.md) para instruções detalhadas.
+
+## Empacotamento no Windows
+
+No Windows, o build gera `LinguagensDL.dll`. O pacote instalável do Code::Blocks precisa ser montado separadamente como um `.cbplugin`, contendo:
+
+- `LinguagensDL.dll`
+- `LinguagensDL.zip`
+- `LinguagensDL.png`
+- `LinguagensDL-off.png`
+
+Para isso, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\empacotar-plugin.ps1 `
+  -BinaryPath .\bin\Release\LinguagensDL.dll `
+  -OutputDir dist `
+  -Version 0.1.0
+```
 
 ## Estrutura do repositório
 
@@ -64,12 +85,13 @@ codeblocks/
 │   └── debugger/                   # Integração com depurador (DAP)
 ├── recursos/
 │   ├── manifest.xml                # Metadados do plugin
-│   ├── languages/                  # Definições Scintilla por linguagem
-│   └── images/                     # Ícones do plugin
-├── properties/                     # Arquivos de configuração de highlight do CB
+│   ├── palavras-chave/             # Palavras-chave por linguagem
+│   └── LinguagensDL*.png           # Ícones do plugin
 ├── docs/
 │   ├── CONSTRUCAO.md               # Como compilar o plugin
 │   └── ARQUITETURA.md              # Decisões de arquitetura
+├── scripts/
+│   └── empacotar-plugin.ps1        # Gera o arquivo .cbplugin no Windows
 └── linguagens-dl.cbp               # Arquivo de projeto do Code::Blocks
 ```
 

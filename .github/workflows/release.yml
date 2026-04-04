@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate-build:
+    name: Validate build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            setup: |
+              sudo apt-get update
+              sudo apt-get install -y cmake g++ libwxgtk3.2-dev
+            configure: |
+              cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLINGUAGENS_DL_BUILD_SHARED=OFF
+            build: |
+              cmake --build build --config Release -j2
+          - os: windows-latest
+            setup: |
+              echo "msys2" > setup-mingw.flag
+            configure: |
+              cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLINGUAGENS_DL_BUILD_SHARED=OFF
+            build: |
+              cmake --build build --config Release -j2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-wxwidgets3.2-msw
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: ${{ matrix.setup }}
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: ${{ matrix.configure }}
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: ${{ matrix.build }}
+
+      - name: Configure (Windows / MSYS2)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: ${{ matrix.configure }}
+
+      - name: Build (Windows / MSYS2)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: ${{ matrix.build }}
+
+  build-plugin-windows:
+    name: Build plugin binary (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-wxwidgets3.2-msw
+            mingw-w64-x86_64-codeblocks
+
+      - name: Prepare CBSDK staging folder
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          CBSDK_STAGING="$PWD/cbsdk-staging"
+          mkdir -p "$CBSDK_STAGING/include" "$CBSDK_STAGING/lib"
+          cp -a /mingw64/include/codeblocks/. "$CBSDK_STAGING/include/"
+          cp -a /mingw64/lib/libcodeblocks*.a "$CBSDK_STAGING/lib/"
+
+      - name: Configure shared build
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DCBSDK_PATH="$PWD/cbsdk-staging"
+
+      - name: Build shared plugin
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          cmake --build build-shared --config Release -j2
+
+      - name: Package Windows plugin artifact
+        shell: powershell
+        run: |
+          $binary = Get-ChildItem -Path build-shared -Recurse -Filter LinguagensDL.dll | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $binary) {
+            throw "Nao foi possivel localizar LinguagensDL.dll em build-shared."
+          }
+          ./scripts/empacotar-plugin.ps1 -BinaryPath $binary -OutputDir dist -Version $env:GITHUB_REF_NAME.TrimStart('v')
+
+      - name: Upload Windows plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linguagens-dl-windows-x64
+          path: dist/*.cbplugin
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs:
+      - validate-build
+      - build-plugin-windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Prepare source bundle
+        run: |
+          mkdir -p dist/source
+          TAG="${GITHUB_REF_NAME}"
+          git archive --format=zip --output "dist/source/linguagens-dl-${TAG}-source.zip" HEAD
+          sha256sum "dist/source/linguagens-dl-${TAG}-source.zip" > "dist/source/linguagens-dl-${TAG}-source.sha256.txt"
+
+      - name: Generate checksums for binaries
+        run: |
+          find dist -type f -name '*.zip' ! -name '*-source.zip' -print0 | while IFS= read -r -d '' file; do
+            sha256sum "$file" > "$file.sha256.txt"
+          done
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.zip
+            dist/*.txt
+            dist/**/*.zip
+            dist/**/*.txt

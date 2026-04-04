@@ -8,7 +8,7 @@ Antes de começar, instale:
 
 1. **Code::Blocks 20.03+**
 2. **Headers do SDK de plugins do Code::Blocks** extraídos do código-fonte
-3. **wxWidgets 3.x** compilado para o mesmo compilador que você usará
+3. **wxWidgets 3.2.x** compilado para o mesmo compilador que você usará
 4. **GCC / MinGW** (Windows) ou **GCC / Clang** (Linux/macOS)
 5. **CMake 3.16+** (opcional, para builds fora do Code::Blocks)
 
@@ -16,40 +16,34 @@ Veja [docs/CONSTRUCAO.md](docs/CONSTRUCAO.md) para instruções detalhadas de co
 
 ## Notas práticas de configuração
 
-### Windows com instalador oficial do Code::Blocks
-O instalador binário do Code::Blocks normalmente **não inclui** os headers do SDK de plugins, como `sdk.h`, `cbeditor.h` e `cbstyledtextctrl.h`. Para desenvolvimento do plugin, extraia a pasta `src/include/` do código-fonte oficial do Code::Blocks para dentro do repositório. Neste projeto usamos a pasta `cbsdk-include/`.
+### Windows com MSYS2 UCRT64
+No Windows, prefira usar o ambiente **MSYS2 UCRT64** para o compilador, as bibliotecas do Code::Blocks e o wxWidgets. Neste projeto, os headers do SDK do Code::Blocks já estão vendorizados em `cbsdk-include/`, então o ponto crítico é manter o linker no mesmo ABI do `ucrt64`.
 
 ### wxWidgets no Windows
-Baixe o código-fonte oficial em https://wxwidgets.org/downloads/ e extraia em um caminho simples, por exemplo `C:/wxWidgets-3.3.2`.
+Se você instalou o pacote `mingw-w64-ucrt-x86_64-wxwidgets3.2-msw`, use `C:/msys64/ucrt64` como prefixo.
 
-Os headers principais do wxWidgets ficam em `C:/wxWidgets-3.3.2/include`, mas o IntelliSense e a compilação também precisam do arquivo `wx/setup.h`, gerado após a build do wxWidgets. Com MinGW, ele fica em `C:/wxWidgets-3.3.2/lib/gcc_dll/mswu`.
+Os headers principais do wxWidgets ficam em `C:/msys64/ucrt64/include`, mas o IntelliSense e a compilação também precisam do arquivo `wx/setup.h`, que fica em `C:/msys64/ucrt64/lib/gcc_x64_dll/mswu`.
 
-Se a pasta `lib/gcc_dll/mswu/` ainda não existir, o wxWidgets ainda não foi compilado para esse toolchain.
+No MSYS2 UCRT64, instale as dependências com:
 
-Para compilar com o MinGW do Code::Blocks, entre em `build/msw` dentro da árvore do wxWidgets e execute o `mingw32-make` com opções compatíveis com DLL e Unicode. Exemplo:
-
-```powershell
-set PATH=C:\CBMinGW\bin;%PATH%
-cd C:\wxWidgets-3.3.2\build\msw
-mingw32-make -f makefile.gcc MONOLITHIC=0 SHARED=1 UNICODE=1 BUILD=release -j4
+```bash
+pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-codeblocks mingw-w64-ucrt-x86_64-wxwidgets3.2-msw
 ```
 
-Se o MinGW estiver instalado em `C:/Program Files/...`, prefira expor esse diretório por um caminho sem espaços, como `C:/CBMinGW`, para evitar falhas do `mingw32-make`.
-
-### MinGW do Code::Blocks em `Program Files`
-O `mingw32-make` pode falhar quando o toolchain está em um caminho com espaço, como `C:/Program Files/CodeBlocks/MinGW`. Uma solução prática é criar um atalho de diretório sem espaços, por exemplo `C:/CBMinGW`, e usar esse caminho no build e no `compilerPath` do VS Code.
+Evite misturar o Code::Blocks de `C:/Program Files` com as bibliotecas do MSYS2. Isso costuma gerar falhas de link por incompatibilidade de ABI.
 
 ### IntelliSense no VS Code
 Para este repositório, o IntelliSense precisa destes includes:
 
 - `${workspaceFolder}/fontes`
 - `${workspaceFolder}/cbsdk-include`
-- `C:/wxWidgets-3.3.2/include`
-- `C:/wxWidgets-3.3.2/lib/gcc_dll/mswu`
+- `${workspaceFolder}/sdk/wxscintilla/include`
+- `C:/msys64/ucrt64/include`
+- `C:/msys64/ucrt64/lib/gcc_x64_dll/mswu`
 
 Também use:
 
-- `compilerPath`: `C:/CBMinGW/bin/g++.exe`
+- `compilerPath`: `C:/msys64/ucrt64/bin/g++.exe`
 - `defines`: `__WXMSW__`, `WXUSINGDLL`, `_UNICODE`, `UNICODE`
 
 ## Fluxo de trabalho
@@ -59,6 +53,19 @@ Também use:
 3. Crie um branch descritivo: `git checkout -b feature/realce-delegua`
 4. Faça suas alterações e escreva testes quando aplicável
 5. Abra um Pull Request descrevendo o que foi feito
+
+## Empacotando para teste no Windows
+
+Depois de compilar o target `Release` no Code::Blocks, gere o pacote instalável:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\empacotar-plugin.ps1 `
+  -BinaryPath .\bin\Release\LinguagensDL.dll `
+  -OutputDir dist `
+  -Version 0.1.0
+```
+
+O arquivo `.cbplugin` resultante em `dist/` é o pacote que deve ser usado em **Plugins → Manage Plugins → Install new**.
 
 ## Convenções de código
 

@@ -1,13 +1,26 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <CodeBlocks_plugin_manifest_file>
+    <SdkVersion major="2" minor="25" release="0" />
     <Plugin name="LinguagensDL">
-        <Version major="0" minor="1" />
-        <Description>Suporte às linguagens da Design Líquido: Delégua, LMHT, FolEs, LinConEs e dialetos de Portugol.</Description>
-        <Author>Design Líquido</Author>
-        <AuthorEmail></AuthorEmail>
-        <AuthorWebsite>https://github.com/DesignLiquido/codeblocks</AuthorWebsite>
-        <Thanks></Thanks>
-        <License>MIT</License>
-        <SDKVersion major="2" minor="0" release="0" />
+        <Value
+            title="LinguagensDL"
+            version="0.1.0"
+            description="Suporte às linguagens da Design Líquido: Delégua, LMHT, FolEs, LinConEs e dialetos de Portugol."
+            author="Design Líquido"
+            authorEmail=""
+            authorWebsite="https://github.com/DesignLiquido/codeblocks"
+            thanks=""
+            license="MIT" />
     </Plugin>
+    <Extra file="palavras-chave/alg.xml" />
+    <Extra file="palavras-chave/birl.xml" />
+    <Extra file="palavras-chave/delegua.xml" />
+    <Extra file="palavras-chave/egua.xml" />
+    <Extra file="palavras-chave/foles.xml" />
+    <Extra file="palavras-chave/lincones.xml" />
+    <Extra file="palavras-chave/lmht.xml" />
+    <Extra file="palavras-chave/mapler.xml" />
+    <Extra file="palavras-chave/pitugues.xml" />
+    <Extra file="palavras-chave/por.xml" />
+    <Extra file="palavras-chave/potigol.xml" />
 </CodeBlocks_plugin_manifest_file>

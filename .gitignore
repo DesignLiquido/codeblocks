@@ -1,2 +1,7 @@
 .claude/
+bin/
+dist/
+obj/
+*.cbplugin
+
 CLAUDE.md

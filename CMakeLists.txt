@@ -73,6 +73,10 @@ else()
     add_library(linguagens-dl STATIC ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
 endif()
 
+set_target_properties(linguagens-dl PROPERTIES
+    OUTPUT_NAME "LinguagensDL"
+)
+
 target_include_directories(linguagens-dl
     PRIVATE
         ${LINGUAGENS_DL_CBSDK_INCLUDE_DIRS}

@@ -3,6 +3,7 @@
 #include <sdk.h>
 #include <cbeditor.h>
 #include <cbstyledtextctrl.h>
+#include <configmanager.h>
 #include <editorcolourset.h>
 #include <editormanager.h>
 #include <logmanager.h>
@@ -255,6 +256,12 @@ wxString GerenciadorLinguagens::CarregarPalavrasChaveDoArquivo(const wxString& c
 
 wxString GerenciadorLinguagens::ObterCaminhoArquivoPalavrasChave(const wxString& extensao) const
 {
+    const wxString arquivoInstalado = ConfigManager::LocateDataFile(
+        wxString::Format("palavras-chave/%s.xml", extensao),
+        sdDataGlobal | sdDataUser);
+    if (!arquivoInstalado.IsEmpty())
+        return arquivoInstalado;
+
     wxFileName arquivoLocal(wxString::Format("recursos/palavras-chave/%s.xml", extensao));
     if (arquivoLocal.FileExists())
         return arquivoLocal.GetFullPath();
